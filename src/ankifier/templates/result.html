@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block step1_class %}done{% endblock %}
+{% block step2_class %}done{% endblock %}
+{% block step3_class %}active{% endblock %}
+
+{% block content %}
+{% if summary %}
+<p style="margin-bottom:1rem; font-weight:600;">
+  Processed {{ summary|length }} card(s).
+</p>
+
+<div style="overflow-x:auto;">
+  <table>
+    <thead>
+      <tr>
+        <th>Word</th>
+        <th>Sense</th>
+        <th>Sentence</th>
+        <th>Audio</th>
+        <th>Anki</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in summary %}
+      <tr>
+        <td><strong>{{ row.word }}</strong></td>
+        <td>{{ row.sense_description }}</td>
+        <td>{{ row.sentence }}</td>
+        <td>
+          {% if row.audio_status == "ok" %}
+            <span class="badge badge-ok">OK</span>
+          {% else %}
+            <span class="badge badge-error">{{ row.audio_status }}</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if row.card_status == "ok" %}
+            <span class="badge badge-ok">Added</span>
+          {% elif "duplicate" in row.card_status %}
+            <span class="badge badge-warn">Duplicate</span>
+          {% elif "not connected" in row.card_status %}
+            <span class="badge badge-warn">No Anki</span>
+          {% else %}
+            <span class="badge badge-error">{{ row.card_status }}</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<div class="actions">
+  <a href="/" class="btn btn-primary">Add More Words</a>
+</div>
+{% else %}
+<div class="empty-msg">
+  <p>Nothing was processed. <a href="/">Start over.</a></p>
+</div>
+{% endif %}
+{% endblock %}

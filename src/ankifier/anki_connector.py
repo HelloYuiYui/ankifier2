@@ -1,0 +1,98 @@
+import base64
+import json
+import os
+
+import requests
+
+ANKICONNECT_URL = os.environ.get("ANKICONNECT_URL", "http://localhost:8765")
+
+
+def _invoke(action: str, params: dict | None = None) -> dict:
+    """Send a request to AnkiConnect and return the result."""
+    payload = {"action": action, "version": 6}
+    if params:
+        payload["params"] = params
+
+    response = requests.post(ANKICONNECT_URL, json=payload)
+    response.raise_for_status()
+
+    result = response.json()
+    if result.get("error"):
+        raise RuntimeError(f"AnkiConnect error: {result['error']}")
+
+    return result.get("result")
+
+
+def check_connection() -> bool:
+    """Verify that AnkiConnect is running and reachable."""
+    try:
+        version = _invoke("version")
+        return version is not None
+    except (requests.ConnectionError, requests.Timeout):
+        return False
+
+
+def ensure_deck(deck_name: str) -> None:
+    """Create a deck if it doesn't already exist (idempotent)."""
+    _invoke("createDeck", {"deck": deck_name})
+
+
+def store_media_file(filename: str, path: str) -> None:
+    """Store an audio file in Anki's media folder via AnkiConnect."""
+    with open(path, 'rb') as f:
+        data = base64.b64encode(f.read()).decode('utf-8')
+
+    _invoke("storeMediaFile", {
+        "filename": filename,
+        "data": data,
+    })
+
+
+def add_cloze_note(
+    deck_name: str,
+    cloze_text: str,
+    back_extra: str,
+    audio_filename: str | None = None,
+    tags: list[str] | None = None,
+) -> int:
+    """Add a Cloze note to Anki and return the note ID.
+
+    Args:
+        deck_name: Target deck name
+        cloze_text: The cloze-formatted sentence for the front
+        back_extra: Translation + any extra text for the back
+        audio_filename: Filename of the audio file (already stored in Anki media)
+        tags: Optional list of tags
+    """
+    if audio_filename:
+        note = {
+            "deckName": deck_name,
+            "modelName": "Cloze",
+            "fields": {
+                "Text": cloze_text,
+                "Back Extra": f"{back_extra}'[sound:{audio_filename}]'",
+            },
+            "tags": tags or ["ankifier"],
+            "options": {
+                "allowDuplicate": False,
+            },
+            "audio": {
+                "filename": audio_filename,
+                "fields": "Back Extra",
+            }
+        }
+    else:
+        note = {
+            "deckName": deck_name,
+            "modelName": "Cloze",
+            "fields": {
+                "Text": cloze_text,
+                "Back Extra": back_extra,
+            },
+            "tags": tags or ["ankifier"],
+            "options": {
+                "allowDuplicate": False,
+            },
+        }
+
+    return _invoke("addNote", {"note": note})

@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block step1_class %}active{% endblock %}
+
+{% block content %}
+<form id="wordForm" method="post" action="/generate">
+  <p style="margin-bottom:.75rem; color:#6e6e73; font-size:.9rem;">
+    Add words below, one per row. You can use formats like
+    <code>boulangerie</code>, <code>la glace</code>, or <code>promener (verb)</code>.
+  </p>
+
+  <table id="wordTable">
+    <thead>
+      <tr>
+        <th style="width:85%">Word</th>
+        <th style="width:15%; text-align:center">Remove</th>
+      </tr>
+    </thead>
+    <tbody id="wordBody">
+      <tr>
+        <td><input type="text" class="word-input" placeholder="e.g. la glace" autofocus></td>
+        <td style="text-align:center">
+          <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="padding:.3rem .7rem; font-size:.8rem;">X</button>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div style="margin-top:.75rem;">
+    <button type="button" class="btn btn-secondary" onclick="addRow()">+ Add Word</button>
+  </div>
+
+  <!-- Hidden textarea that gets populated on submit -->
+  <textarea name="words" id="wordsPayload" style="display:none;"></textarea>
+
+  <div class="actions">
+    <button type="submit" class="btn btn-primary" id="nextBtn">
+      <span class="btn-label">Next</span>
+      <span class="spinner"></span>
+    </button>
+  </div>
+</form>
+
+<script>
+  function addRow() {
+    const tbody = document.getElementById('wordBody');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" class="word-input" placeholder="e.g. la glace"></td>
+      <td style="text-align:center">
+        <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="padding:.3rem .7rem; font-size:.8rem;">X</button>
+      </td>`;
+    tbody.appendChild(tr);
+    tr.querySelector('input').focus();
+  }
+
+  function removeRow(btn) {
+    const tbody = document.getElementById('wordBody');
+    if (tbody.rows.length > 1) {
+      btn.closest('tr').remove();
+    }
+  }
+
+  // Allow Enter key to add a new row instead of submitting
+  document.getElementById('wordTable').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter' && e.target.classList.contains('word-input')) {
+      e.preventDefault();
+      addRow();
+    }
+  });
+
+  document.getElementById('wordForm').addEventListener('submit', function(e) {
+    const inputs = document.querySelectorAll('.word-input');
+    const words = [];
+    inputs.forEach(inp => {
+      const val = inp.value.trim();
+      if (val) words.push(val);
+    });
+    if (words.length === 0) {
+      e.preventDefault();
+      alert('Please enter at least one word.');
+      return;
+    }
+    document.getElementById('wordsPayload').value = words.join('\n');
+    document.getElementById('nextBtn').classList.add('loading');
+  });
+</script>
+{% endblock %}
