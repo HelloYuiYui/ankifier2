@@ -70,16 +70,12 @@ def add_cloze_note(
             "modelName": "Cloze",
             "fields": {
                 "Text": cloze_text,
-                "Back Extra": f"{back_extra}'[sound:{audio_filename}]'",
+                "Back Extra": f"{back_extra} [sound:{audio_filename}]",
             },
             "tags": tags or ["ankifier"],
             "options": {
                 "allowDuplicate": False,
             },
-            "audio": {
-                "filename": audio_filename,
-                "fields": "Back Extra",
-            }
         }
     else:
         note = {
