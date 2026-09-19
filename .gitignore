@@ -6,3 +6,4 @@ audio/
 dist/
 *.egg-info/
 poetry.lock
+.DS_Store

@@ -10,7 +10,7 @@ from jinja2 import Environment, FileSystemLoader
 import jinja2
 
 from ankifier.csv_parser import parse_line
-from ankifier.mistral_connector import init_client as init_mistral, query_senses
+from ankifier import local_connector, mistral_connector
 from ankifier.elevenlabs_connector import (
     init_client as init_elevenlabs,
     sanitize_filename,
@@ -51,6 +51,17 @@ def _sid(request: Request) -> str:
     return request.session["sid"]
 
 
+def _init_llm():
+    """Return (client, query_senses) for the backend named by LLM_BACKEND.
+
+    "local" talks to the MLX server (see llm_server/server.py); anything else
+    uses the hosted Mistral API.
+    """
+    # if os.environ.get("LLM_BACKEND", "mistral").lower() == "local":
+    #     return local_connector.init_client(), local_connector.query_senses
+    return mistral_connector.init_client(), mistral_connector.query_senses
+
+
 def _config() -> dict:
     return {
         "deck_name": os.environ.get("ANKI_DECK", "French::Vocabulary"),
@@ -80,14 +91,14 @@ async def generate(request: Request, words: str = Form(...)):
         return RedirectResponse("/", status_code=303)
 
     config = _config()
-    ai_client = init_mistral()
+    ai_client, query = _init_llm()
 
     # Build results: list of dicts with word + senses
     results: list[dict] = []
     for line in word_lines:
         entry = parse_line(line)
         try:
-            senses = query_senses(ai_client, entry, config["target_lang"])
+            senses = query(ai_client, entry, config["target_lang"])
             for sense in senses:
                 results.append({
                     "word": entry.raw,
@@ -98,6 +109,7 @@ async def generate(request: Request, words: str = Form(...)):
                     "hidden_text": sense.hidden_text,
                     "hint": sense.hint,
                     "translation": sense.translation,
+                    "level": sense.level.value if sense.level else None,
                 })
         except Exception as e:
             results.append({

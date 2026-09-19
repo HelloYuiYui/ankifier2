@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 
 from ankifier.csv_parser import read_csv
 from ankifier.mistral_connector import init_client as init_mistral
-from ankifier.claude_connector import init_client as init_claude
 from ankifier.elevenlabs_connector import init_client as init_elevenlabs
 from ankifier.anki_connector import check_connection, ensure_deck
 from ankifier.utils.utils import process_word

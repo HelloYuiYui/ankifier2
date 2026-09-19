@@ -21,7 +21,22 @@ dependencies = [
 ]
 
 [tool.poetry]
-packages = [{include = "ankifier", from = "src"}]
+packages = [
+    {include = "ankifier", from = "src"},
+    {include = "llm_server", from = "src"},
+]
+
+# Heavy, Apple-Silicon-only inference stack. Opt in with:
+#     poetry install --with llm
+[tool.poetry.group.llm]
+optional = true
+
+[tool.poetry.group.llm.dependencies]
+mlx-lm = {version = ">=0.31.0,<0.32.0", markers = "sys_platform == 'darwin' and platform_machine == 'arm64'"}
+
+[project.scripts]
+ankifier = "ankifier.web:run"
+ankifier-llm = "llm_server.server:run"
 
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]

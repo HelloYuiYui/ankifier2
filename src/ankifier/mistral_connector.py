@@ -3,8 +3,7 @@ import os
 
 from mistralai import Mistral
 
-from ankifier.models import Sense, WordEntry
-
+from ankifier.models import VALID_LEVELS, Level, Sense, WordEntry
 
 def init_client() -> Mistral:
     """Create and return a Mistral client using AI_KEY from environment."""
@@ -24,26 +23,18 @@ def build_prompt(entry: WordEntry, target_lang: str) -> str:
     if entry.article:
         extra_context += f' It is commonly used with the article(s): {entry.article}.'
 
-    return f"""Given the {target_lang} word "{word_desc}", provide UP TO 3 (can be less) of its most common distinct senses. If senses are very similar, you MUST combine them into one. If there are less than 3 senses for the word, provide however many there are. Format should be as below:
+    return f"""Given the {target_lang} word "{word_desc}", provide UP TO 3 (can be less) of its most common distinct senses. If senses are similar, you MUST combine them into one. If there are less than 3 senses for the word, provide however many there are, DO NOT pad the list. Format should be as below:"""
 
-For each sense the format should be as follows:
-1. "sense": A short English description of the meaning (1-5 words).
-2. "sentence": A simple, natural sentence in {target_lang} using this word. Do not mark the word in any way in the sentence, just use it as it would normally appear. Make sure the word is actually used in the sentence and not just tacked on at the end. The sentence MUST include the word in a natural context, and MUST be a full sentence (not a fragment).
-   - For nouns, include the appropriate article (le/la/les/un/une).
-   - For verbs that are reflexive or commonly used reflexively, use the reflexive form (se/s').
-   - For adjectives, use the adjective in its correct form as it appears in the sentence.
-   - For other words, just use the word as it appears in the sentence.
-3. "hidden_text": The part of the sentence that should be hidden in a flashcard. This MUST include:
-   - For nouns: the article + the word (e.g., "la glace", "un livre" or "du pain"). if there is an adjective, include it as well (e.g., "la grande maison", "un petit chat")
-   - For reflexive verbs: the reflexive pronoun + the verb (e.g., "se promener" or "se promène")
-   - For adjectives: the adjective in its correct form as it appears in the sentence
-   - For other words: the word as it appears in the sentence
-4. "hint": The English translation that will be shown as a hint. if there is an adjective, include it as well, if not only include the sense.
-5. "translation": The full English translation of the sentence.
+def clean_sense(s: dict) -> dict:
+    """Strip markdown emphasis from a raw sense dict's string fields.
 
-Respond ONLY with valid JSON in this exact format:
-{{"senses": [{{"sense": "...", "sentence": "...", "hidden_text": "...", "hint": "...", "translation": "..."}}, ...]}}
-"""
+    Models keep marking the target word as **this** despite the prompt telling
+    them not to, so remove the asterisks here instead. Must run before
+    _build_cloze: a starred hidden_text would otherwise fail to match the
+    sentence and hit the fallback path.
+    """
+    return {k: v.replace("*", "") if isinstance(v, str) else v for k, v in s.items()}
+
 
 def _build_cloze(sentence: str, hidden_text: str, hint: str) -> str:
     """Replace the hidden_text in the sentence with Anki cloze format."""
@@ -68,11 +59,30 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
         f"You are a {target_lang} language learning assistant. "
         f"You help create Anki flashcards for {target_lang} vocabulary. "
         "Always respond in valid JSON matching the requested schema."
+        "For each sense the format should be as follows: \
+            1. 'sense': A short English description of the meaning (1-5 words). \
+            2. 'sentence': A simple, natural sentence in French using this word. Do not mark the word in any way in the sentence. Just use it as it would normally appear. Make sure the word is actually used in the sentence and not just tacked on at the end. The sentence MUST include the word in a natural context, and MUST be a full sentence (not a fragment). \
+                - For nouns, include the appropriate article (le/la/les/un/une).\
+                - For verbs that are reflexive or commonly used reflexively, use the reflexive form (se/s'). \
+                - For adjectives, use the adjective in its correct form as it appears in the sentence. \
+                - For other words, just use the word as it appears in the sentence. \
+            3. 'hidden_text': The part of the sentence that should be hidden in a flashcard. This MUST include: \
+                - For nouns: the article + the word (e.g., 'la glace', 'un livre' or 'du pain'). if there is an adjective, include it as well (e.g., 'la grande maison', 'un petit chat') \
+                - For reflexive verbs: the reflexive pronoun + the verb (e.g., 'se promener' or 'se promène') \
+                - For adjectives: the adjective in its correct form as it appears in the sentence \
+                - For other words: the word as it appears in the sentence \
+            4. 'hint': The English translation that will be shown as a hint. if there is an adjective, include it as well, if not only include the sense. \
+            5. 'translation': The full English translation of the sentence. \
+            6. 'level': The estimated CEFR level of the word for this sense (one of: A1, A2, B1, B2, C1, C2). \
+\
+            Respond ONLY with valid JSON in this exact format: \
+            /{/{'senses': [/{/{'sense': '...', 'sentence': '...', 'hidden_text': '...', 'hint': '...', 'translation': '...', 'level': '...'/}/}, ...]/}/} \
+        "
     )
     user_prompt = build_prompt(entry, target_lang)
 
     response = client.chat.complete(
-        model="mistral-medium-latest",
+        model="ministral-14b-latest", # model="mistral-medium-latest",
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -94,8 +104,9 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
                                     "hidden_text": {"type": "string"},
                                     "hint": {"type": "string"},
                                     "translation": {"type": "string"},
+                                    "level": {"type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]},
                                 },
-                                "required": ["sense", "sentence", "hidden_text", "hint", "translation"],
+                                "required": ["sense", "sentence", "hidden_text", "hint", "translation", "level"],
                                 "additionalProperties": False,
                             },
                         },
@@ -113,10 +124,14 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
 
     senses = []
     for i, s in enumerate(data.get("senses", []), start=1):
+        s = clean_sense(s)
         sentence = s["sentence"]
         hidden_text = s["hidden_text"]
         hint = s["hint"]
         cloze_sentence = _build_cloze(sentence, hidden_text, hint)
+        # The json_schema makes level required, but don't invent one if it is
+        # ever absent -- the UI shows a missing level rather than a guess.
+        level = s.get("level")
 
         senses.append(Sense(
             sense_number=i,
@@ -126,6 +141,7 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
             hint=hint,
             cloze_sentence=cloze_sentence,
             translation=s["translation"],
+            level=Level(value=level) if level in VALID_LEVELS else None,
         ))
 
     return senses

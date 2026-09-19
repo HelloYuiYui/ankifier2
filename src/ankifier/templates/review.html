@@ -19,6 +19,7 @@
           <th>Sense</th>
           <th>Sentence</th>
           <th>Translation</th>
+          <th>Level</th>
         </tr>
       </thead>
       <tbody>
@@ -33,6 +34,14 @@
           <td>{{ row.sense_description }}</td>
           <td>{{ row.sentence }}</td>
           <td>{{ row.translation }}</td>
+          <td>
+            {%- if row.level -%}
+              {{ row.level }}
+            {%- elif row.sense_number != 0 -%}
+              <span style="color:#b26a00; font-size:.85rem;"
+                    title="The model did not return a CEFR level for this sense">not returned</span>
+            {%- endif -%}
+          </td>
         </tr>
         {% endfor %}
       </tbody>
