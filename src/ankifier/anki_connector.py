@@ -92,3 +92,35 @@ def add_cloze_note(
         }
 
     return _invoke("addNote", {"note": note})
+
+
+def add_basic_note(
+    deck_name: str,
+    front: str,
+    back: str,
+    audio_filename: str | None = None,
+    tags: list[str] | None = None,
+) -> int:
+    """Add a Basic note to Anki and return the note ID.
+
+    Used for "as is" texts with no -...- markers: Anki treats a Cloze note
+    with zero cloze deletions as empty and refuses to add it, so a card with
+    nothing to hide has to be a Basic front/back instead.
+    """
+    if audio_filename:
+        back = f"{back} [sound:{audio_filename}]"
+
+    note = {
+        "deckName": deck_name,
+        "modelName": "Basic",
+        "fields": {
+            "Front": front,
+            "Back": back,
+        },
+        "tags": tags or ["ankifier"],
+        "options": {
+            "allowDuplicate": False,
+        },
+    }
+
+    return _invoke("addNote", {"note": note})

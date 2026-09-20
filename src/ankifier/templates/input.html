@@ -4,21 +4,32 @@
 
 {% block content %}
 <form id="wordForm" method="post" action="/generate">
-  <p style="margin-bottom:.75rem; color:#6e6e73; font-size:.9rem;">
+  <p style="margin-bottom:.4rem; color:#6e6e73; font-size:.9rem;">
     Add words below, one per row. You can use formats like
     <code>boulangerie</code>, <code>la glace</code>, or <code>promener (verb)</code>.
+  </p>
+  <p style="margin-bottom:.75rem; color:#6e6e73; font-size:.9rem;">
+    Tick <strong>As is</strong> to use your text verbatim instead of generating a
+    sentence from a keyword. The AI then only translates it. Wrap the part to hide in
+    hyphens, e.g. <code>Il faut que tu -sois- prêt.</code> — with no markers the card
+    has no cloze at all. The hyphens are stripped before the text reaches the AI, the
+    audio or Anki. A marking hyphen needs a space (or the start/end of the line)
+    outside it and a letter inside it, so ordinary hyphens in
+    <code>est-ce</code> or <code>rendez-vous</code> are left alone.
   </p>
 
   <table id="wordTable">
     <thead>
       <tr>
-        <th style="width:85%">Word</th>
+        <th style="width:72%">Word / text</th>
+        <th style="width:13%; text-align:center" title="Use the text verbatim; AI only translates it">As is</th>
         <th style="width:15%; text-align:center">Remove</th>
       </tr>
     </thead>
     <tbody id="wordBody">
       <tr>
         <td><input type="text" class="word-input" placeholder="e.g. la glace" autofocus></td>
+        <td style="text-align:center"><input type="checkbox" class="asis-input"></td>
         <td style="text-align:center">
           <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="padding:.3rem .7rem; font-size:.8rem;">X</button>
         </td>
@@ -30,8 +41,8 @@
     <button type="button" class="btn btn-secondary" onclick="addRow()">+ Add Word</button>
   </div>
 
-  <!-- Hidden textarea that gets populated on submit -->
-  <textarea name="words" id="wordsPayload" style="display:none;"></textarea>
+  <!-- Hidden field that gets populated on submit: JSON [{text, as_is}, ...] -->
+  <textarea name="rows" id="rowsPayload" style="display:none;"></textarea>
 
   <div class="actions">
     <button type="submit" class="btn btn-primary" id="nextBtn">
@@ -47,6 +58,7 @@
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><input type="text" class="word-input" placeholder="e.g. la glace"></td>
+      <td style="text-align:center"><input type="checkbox" class="asis-input"></td>
       <td style="text-align:center">
         <button type="button" class="btn btn-danger btn-sm" onclick="removeRow(this)" style="padding:.3rem .7rem; font-size:.8rem;">X</button>
       </td>`;
@@ -70,18 +82,17 @@
   });
 
   document.getElementById('wordForm').addEventListener('submit', function(e) {
-    const inputs = document.querySelectorAll('.word-input');
-    const words = [];
-    inputs.forEach(inp => {
-      const val = inp.value.trim();
-      if (val) words.push(val);
+    const rows = [];
+    document.querySelectorAll('#wordBody tr').forEach(tr => {
+      const val = tr.querySelector('.word-input').value.trim();
+      if (val) rows.push({ text: val, as_is: tr.querySelector('.asis-input').checked });
     });
-    if (words.length === 0) {
+    if (rows.length === 0) {
       e.preventDefault();
       alert('Please enter at least one word.');
       return;
     }
-    document.getElementById('wordsPayload').value = words.join('\n');
+    document.getElementById('rowsPayload').value = JSON.stringify(rows);
     document.getElementById('nextBtn').classList.add('loading');
   });
 </script>

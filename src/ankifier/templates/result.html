@@ -15,6 +15,7 @@
     <thead>
       <tr>
         <th>Word</th>
+        <th style="width:4rem; text-align:center">As is</th>
         <th>Sense</th>
         <th>Sentence</th>
         <th>Audio</th>
@@ -25,6 +26,9 @@
       {% for row in summary %}
       <tr>
         <td><strong>{{ row.word }}</strong></td>
+        <td style="text-align:center">
+          {%- if row.as_is -%}<span class="badge badge-ok">yes</span>{%- endif -%}
+        </td>
         <td>{{ row.sense_description }}</td>
         <td>{{ row.sentence }}</td>
         <td>

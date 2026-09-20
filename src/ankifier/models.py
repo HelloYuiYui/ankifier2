@@ -12,6 +12,9 @@ class WordEntry:
     word: str
     article: str | None = None
     function: str | None = None
+    # "as is": the raw text is the card itself. No sense generation happens --
+    # the model only translates, and any -...- markers become the clozes.
+    as_is: bool = False
 
 
 @dataclass

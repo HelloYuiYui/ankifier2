@@ -3,15 +3,22 @@ import re
 from ankifier.models import WordEntry
 
 
-def parse_line(line: str) -> WordEntry:
+def parse_line(line: str, as_is: bool = False) -> WordEntry:
     """Parse a single line from the CSV into a WordEntry.
 
     Handles three formats:
       1. 'boulangerie'           -> plain word
       2. 'la glace'              -> word with article
       3. 'promener (verb)'       -> word with function annotation
+
+    With as_is=True the line is a whole phrase to be translated verbatim, so
+    none of that applies: article/function heuristics would happily mangle
+    "la glace fond au soleil" into article="la", word="soleil".
     """
     line = line.strip()
+
+    if as_is:
+        return WordEntry(raw=line, word=line, as_is=True)
 
     # Format 3: word (function) e.g. "promener (verb)"
     func_match = re.match(r'^(.+?)\s*\((\w+)\)$', line)
