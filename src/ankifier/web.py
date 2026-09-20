@@ -1,3 +1,4 @@
+import json
 import os
 import uuid
 from pathlib import Path
@@ -21,6 +22,7 @@ from ankifier.anki_connector import (
     ensure_deck,
     store_media_file,
     add_cloze_note,
+    add_basic_note,
 )
 
 load_dotenv()
@@ -65,6 +67,9 @@ def _init_llm():
 def _config() -> dict:
     return {
         "deck_name": os.environ.get("ANKI_DECK", "French::Vocabulary"),
+        # "As is" cards are hand-written grammar material, not generated
+        # vocabulary, so they get their own deck.
+        "as_is_deck_name": os.environ.get("ANKI_ASIS_DECK", "French::Grammar"),
         "target_lang": os.environ.get("TARGET_LANG", "French"),
         "audio_dir": os.environ.get("AUDIO_DIR", "audio"),
         "tags": os.environ.get("ANKI_TAGS", "ankifier").split(","),
@@ -83,10 +88,42 @@ async def page_input(request: Request):
 # ---------------------------------------------------------------------------
 # POST – generate senses from AI
 # ---------------------------------------------------------------------------
+def _parse_rows(rows: str | None, words: str | None) -> list[tuple[str, bool]]:
+    """Return [(text, as_is), ...] from the submitted form.
+
+    The input page posts `rows` as JSON so each line can carry its own "as is"
+    flag; `words` is the older newline-separated field, kept so a plain POST
+    (or an older cached page) still works.
+    """
+    if rows:
+        try:
+            parsed = json.loads(rows)
+        except (ValueError, TypeError):
+            parsed = []
+        out = []
+        for item in parsed:
+            if not isinstance(item, dict):
+                continue
+            text = str(item.get("text", "")).strip()
+            if text:
+                out.append((text, bool(item.get("as_is"))))
+        if out:
+            return out
+
+    if words:
+        return [(w.strip(), False) for w in words.splitlines() if w.strip()]
+
+    return []
+
+
 @app.post("/generate")
-async def generate(request: Request, words: str = Form(...)):
+async def generate(
+    request: Request,
+    rows: str = Form(None),
+    words: str = Form(None),
+):
     sid = _sid(request)
-    word_lines = [w.strip() for w in words.splitlines() if w.strip()]
+    word_lines = _parse_rows(rows, words)
     if not word_lines:
         return RedirectResponse("/", status_code=303)
 
@@ -95,13 +132,17 @@ async def generate(request: Request, words: str = Form(...)):
 
     # Build results: list of dicts with word + senses
     results: list[dict] = []
-    for line in word_lines:
-        entry = parse_line(line)
+    for line, as_is in word_lines:
+        entry = parse_line(line, as_is=as_is)
+        # "As is" skips sense generation entirely: the text is already the
+        # card, so the model is only asked for its translation.
+        run = mistral_connector.translate_as_is if as_is else query
         try:
-            senses = query(ai_client, entry, config["target_lang"])
+            senses = run(ai_client, entry, config["target_lang"])
             for sense in senses:
                 results.append({
                     "word": entry.raw,
+                    "as_is": as_is,
                     "sense_number": sense.sense_number,
                     "sense_description": sense.sense_description,
                     "sentence": sense.sentence,
@@ -114,6 +155,7 @@ async def generate(request: Request, words: str = Form(...)):
         except Exception as e:
             results.append({
                 "word": entry.raw,
+                "as_is": as_is,
                 "sense_number": 0,
                 "sense_description": f"Error: {e}",
                 "sentence": "",
@@ -142,6 +184,22 @@ async def page_review(request: Request):
 # ---------------------------------------------------------------------------
 # POST – add selected senses to Anki
 # ---------------------------------------------------------------------------
+def _deck_for(row: dict, config: dict) -> str:
+    """Return the deck a result row belongs in."""
+    if row.get("as_is"):
+        return config.get("as_is_deck_name", _config()["as_is_deck_name"])
+    return config["deck_name"]
+
+
+def _tags_for(row: dict, config: dict) -> list[str]:
+    """Return the tags for a result row, marking as-is cards so they can be
+    found (and re-styled) separately from generated vocabulary."""
+    tags = list(config["tags"])
+    if row.get("as_is") and "as-is" not in tags:
+        tags.append("as-is")
+    return tags
+
+
 @app.post("/add-to-anki")
 async def add_to_anki(request: Request):
     sid = _sid(request)
@@ -174,12 +232,15 @@ async def add_to_anki(request: Request):
     # Check Anki
     anki_ok = check_connection()
     if anki_ok:
-        ensure_deck(config["deck_name"])
+        # Only create the decks this batch actually needs.
+        for deck in {_deck_for(row, config) for row in kept}:
+            ensure_deck(deck)
 
     summary: list[dict] = []
 
     for row in kept:
-        word_safe = sanitize_filename(row["word"])
+        # An as-is "word" is a whole sentence, so cap the filename stem.
+        word_safe = sanitize_filename(row["word"])[:60]
         filename = f"{word_safe}_{row['sense_number']}.mp3"
         output_path = os.path.join(audio_dir, filename)
 
@@ -197,13 +258,26 @@ async def add_to_anki(request: Request):
             try:
                 if audio_ok:
                     store_media_file(filename, output_path)
-                add_cloze_note(
-                    deck_name=config["deck_name"],
-                    cloze_text=row["cloze_sentence"],
-                    back_extra=row["translation"],
-                    audio_filename=filename if audio_ok else None,
-                    tags=config["tags"],
-                )
+                deck_name = _deck_for(row, config)
+                if "{{c" in row["cloze_sentence"]:
+                    add_cloze_note(
+                        deck_name=deck_name,
+                        cloze_text=row["cloze_sentence"],
+                        back_extra=row["translation"],
+                        audio_filename=filename if audio_ok else None,
+                        tags=_tags_for(row, config),
+                    )
+                else:
+                    # No cloze deletion to make -- an as-is text with no
+                    # -...- markers. Anki rejects an empty Cloze note, so
+                    # this becomes a plain front/back card.
+                    add_basic_note(
+                        deck_name=deck_name,
+                        front=row["sentence"],
+                        back=row["translation"],
+                        audio_filename=filename if audio_ok else None,
+                        tags=_tags_for(row, config),
+                    )
             except RuntimeError as e:
                 if "duplicate" in str(e).lower():
                     card_status = "skipped (duplicate)"

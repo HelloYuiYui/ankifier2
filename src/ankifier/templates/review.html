@@ -16,6 +16,7 @@
         <tr>
           <th style="width:3rem">Keep</th>
           <th>Word</th>
+          <th style="width:4rem; text-align:center">As is</th>
           <th>Sense</th>
           <th>Sentence</th>
           <th>Translation</th>
@@ -31,13 +32,25 @@
             {% endif %}
           </td>
           <td><strong>{{ row.word }}</strong></td>
+          <td style="text-align:center">
+            {%- if row.as_is -%}
+              <span class="badge badge-ok">yes</span>
+            {%- endif -%}
+          </td>
           <td>{{ row.sense_description }}</td>
-          <td>{{ row.sentence }}</td>
+          <td>
+            {{ row.sentence }}
+            {%- if row.as_is and row.cloze_sentence %}
+            <div style="color:#6e6e73; font-size:.8rem; margin-top:.25rem; font-family:ui-monospace, Menlo, monospace;">
+              {{ row.cloze_sentence }}
+            </div>
+            {%- endif %}
+          </td>
           <td>{{ row.translation }}</td>
           <td>
             {%- if row.level -%}
               {{ row.level }}
-            {%- elif row.sense_number != 0 -%}
+            {%- elif row.sense_number != 0 and not row.as_is -%}
               <span style="color:#b26a00; font-size:.85rem;"
                     title="The model did not return a CEFR level for this sense">not returned</span>
             {%- endif -%}
