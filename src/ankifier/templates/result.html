@@ -14,10 +14,12 @@
   <table>
     <thead>
       <tr>
-        <th>Word</th>
+        <th>{% if mode == "manual" %}Front{% else %}Word{% endif %}</th>
+        {% if mode != "manual" %}
         <th style="width:4rem; text-align:center">As is</th>
         <th>Sense</th>
-        <th>Sentence</th>
+        {% endif %}
+        <th>{% if mode == "manual" %}Spoken front{% else %}Sentence{% endif %}</th>
         <th>Audio</th>
         <th>Anki</th>
       </tr>
@@ -26,10 +28,12 @@
       {% for row in summary %}
       <tr>
         <td><strong>{{ row.word }}</strong></td>
+        {% if mode != "manual" %}
         <td style="text-align:center">
           {%- if row.as_is -%}<span class="badge badge-ok">yes</span>{%- endif -%}
         </td>
         <td>{{ row.sense_description }}</td>
+        {% endif %}
         <td>{{ row.sentence }}</td>
         <td>
           {% if row.audio_status == "ok" %}
@@ -56,11 +60,15 @@
 </div>
 
 <div class="actions">
-  <a href="/" class="btn btn-primary">Add More Words</a>
+  {% if mode == "manual" %}
+  <a href="/manual" class="btn btn-primary">Add More Pairs</a>
+  {% else %}
+  <a href="/generate" class="btn btn-primary">Add More Words</a>
+  {% endif %}
 </div>
 {% else %}
 <div class="empty-msg">
-  <p>Nothing was processed. <a href="/">Start over.</a></p>
+  <p>Nothing was processed. <a href="/{{ mode or 'generate' }}">Start over.</a></p>
 </div>
 {% endif %}
 {% endblock %}

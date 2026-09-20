@@ -29,6 +29,38 @@
       color: #6e6e73;
       margin-bottom: 2rem;
     }
+    .nav {
+      display: flex;
+      gap: .4rem;
+      background: #e8e8ed;
+      padding: .3rem;
+      border-radius: 10px;
+      margin-bottom: 1.5rem;
+    }
+    .nav a {
+      flex: 1;
+      text-align: center;
+      padding: .55rem .8rem;
+      border-radius: 8px;
+      text-decoration: none;
+      color: #6e6e73;
+      font-size: .9rem;
+      font-weight: 600;
+      transition: background .15s, color .15s;
+    }
+    .nav a:hover { color: #1d1d1f; }
+    .nav a.current {
+      background: #fff;
+      color: #1d1d1f;
+      box-shadow: 0 1px 2px rgba(0,0,0,.1);
+    }
+    .nav .nav-sub {
+      display: block;
+      font-weight: 400;
+      font-size: .75rem;
+      color: #86868b;
+      margin-top: .1rem;
+    }
     .steps {
       display: flex;
       gap: 1rem;
@@ -161,11 +193,22 @@
 <body>
   <div class="container">
     <h1>Ankifier</h1>
-    <p class="subtitle">Generate Anki cloze cards from vocabulary words</p>
+    <p class="subtitle">{% if mode == 'manual' %}Write both sides of each card yourself{% else %}Generate Anki cloze cards from vocabulary words{% endif %}</p>
+
+    <nav class="nav">
+      <a href="/generate" class="{% if mode != 'manual' %}current{% endif %}">
+        Generate
+        <span class="nav-sub">AI writes the card</span>
+      </a>
+      <a href="/manual" class="{% if mode == 'manual' %}current{% endif %}">
+        Manual
+        <span class="nav-sub">You write both sides</span>
+      </a>
+    </nav>
 
     <div class="steps">
-      <div class="step {% block step1_class %}{% endblock %}">1. Enter Words</div>
-      <div class="step {% block step2_class %}{% endblock %}">2. Review Senses</div>
+      <div class="step {% block step1_class %}{% endblock %}">1. Enter {% if mode == 'manual' %}Pairs{% else %}Words{% endif %}</div>
+      <div class="step {% block step2_class %}{% endblock %}">2. Review {% if mode == 'manual' %}Pairs{% else %}Senses{% endif %}</div>
       <div class="step {% block step3_class %}{% endblock %}">3. Results</div>
     </div>
 
