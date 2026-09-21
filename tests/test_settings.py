@@ -34,10 +34,14 @@ def test_deck_for_defaults(kind, expected):
 
 def test_deck_for_honours_overrides():
     s = settings(
-        anki_deck="A", anki_asis_deck="B", anki_manual_deck="C",
+        anki_deck="A",
+        anki_asis_deck="B",
+        anki_manual_deck="C",
     )
     assert (s.deck_for("generated"), s.deck_for("as_is"), s.deck_for("manual")) == (
-        "A", "B", "C",
+        "A",
+        "B",
+        "C",
     )
 
 

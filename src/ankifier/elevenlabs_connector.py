@@ -20,8 +20,8 @@ def init_client() -> ElevenLabs:
 def sanitize_filename(text: str) -> str:
     """Sanitize a string for use as a filename."""
     text = text.lower().strip()
-    text = re.sub(r'[^\w\s-]', '', text)
-    text = re.sub(r'[\s]+', '_', text)
+    text = re.sub(r"[^\w\s-]", "", text)
+    text = re.sub(r"[\s]+", "_", text)
     return text
 
 
@@ -81,7 +81,7 @@ def generate_audio(
 
     partial = path.with_name(path.name + ".part")
     try:
-        with open(partial, 'wb') as f:
+        with open(partial, "wb") as f:
             for chunk in audio_iterator:
                 f.write(chunk)
         partial.replace(path)

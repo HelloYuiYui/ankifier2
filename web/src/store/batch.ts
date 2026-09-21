@@ -156,7 +156,5 @@ export const useBatch = create<BatchState>()(
   ),
 )
 
-export const keptDrafts = (s: {
-  drafts: CardDraft[]
-  keep: Record<string, boolean>
-}) => s.drafts.filter((d) => s.keep[d.id])
+export const keptDrafts = (s: { drafts: CardDraft[]; keep: Record<string, boolean> }) =>
+  s.drafts.filter((d) => s.keep[d.id])

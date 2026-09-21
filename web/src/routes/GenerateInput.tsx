@@ -64,7 +64,7 @@ export function GenerateInput() {
         return
       }
       setDrafts(cards, errors)
-      navigate('/review')
+      void navigate('/review')
     } catch (e) {
       const message = e instanceof ApiError ? e.message : String(e)
       fail(message)
@@ -78,9 +78,9 @@ export function GenerateInput() {
     <div className="panel">
       <h2>Words to generate</h2>
       <p className="small muted" style={{ marginTop: 0 }}>
-        One word or phrase per row. Tick <strong>As is</strong> to keep the text
-        exactly as typed — it is only translated, and any <code>[[…]]</code> you
-        mark becomes the cloze deletion.
+        One word or phrase per row. Tick <strong>As is</strong> to keep the text exactly
+        as typed — it is only translated, and any <code>[[…]]</code> you mark becomes
+        the cloze deletion.
       </p>
 
       <div className="scroll">
@@ -99,6 +99,9 @@ export function GenerateInput() {
                   <input
                     type="text"
                     value={row.text}
+                    // Deliberate: puts the caret in the first row of an empty
+                    // form, which is the only thing to do on this screen.
+                    // eslint-disable-next-line jsx-a11y/no-autofocus
                     autoFocus={i === 0 && rows.length === 1}
                     ref={i === rows.length - 1 ? lastInput : undefined}
                     placeholder="manger (verb)"
@@ -110,6 +113,7 @@ export function GenerateInput() {
                   <label className="check">
                     <input
                       type="checkbox"
+                      aria-label="As is"
                       checked={row.asIs}
                       onChange={(e) => patch(row.id, { asIs: e.target.checked })}
                     />
@@ -130,7 +134,11 @@ export function GenerateInput() {
         </table>
       </div>
 
-      {error && <div className="banner error" style={{ marginTop: 14 }}>{error}</div>}
+      {error && (
+        <div className="banner error" style={{ marginTop: 14 }}>
+          {error}
+        </div>
+      )}
 
       <div className="actions">
         <button onClick={addRow}>Add row</button>

@@ -14,7 +14,6 @@ import pytest
 
 from ankifier import cloze
 
-
 # ---------------------------------------------------------------------------
 # render() with positional hints -- the "as is" path, hints supplied by Mistral
 # (label, text, hints, expected_plain, expected_cloze)
@@ -22,67 +21,78 @@ from ankifier import cloze
 POSITIONAL = [
     (
         "no markers at all",
-        "Je mange une pomme", [],
+        "Je mange une pomme",
+        [],
         "Je mange une pomme",
         "Je mange une pomme",
     ),
     (
         "one marker, no hint supplied -- bare cloze, never an empty ::hint",
-        "Je [[mange]] une pomme", [],
+        "Je [[mange]] une pomme",
+        [],
         "Je mange une pomme",
         "Je {{c1::mange}} une pomme",
     ),
     (
         "one marker, one hint",
-        "Je [[mange]] une pomme", ["to eat"],
+        "Je [[mange]] une pomme",
+        ["to eat"],
         "Je mange une pomme",
         "Je {{c1::mange::to eat}} une pomme",
     ),
     (
         "an empty-string hint is treated as no hint",
-        "Je [[mange]] une pomme", [""],
+        "Je [[mange]] une pomme",
+        [""],
         "Je mange une pomme",
         "Je {{c1::mange}} une pomme",
     ),
     (
         "two markers number c1, c2 in order of appearance",
-        "Je [[mange]] une [[pomme]]", ["eat", "apple"],
+        "Je [[mange]] une [[pomme]]",
+        ["eat", "apple"],
         "Je mange une pomme",
         "Je {{c1::mange::eat}} une {{c2::pomme::apple}}",
     ),
     (
         "fewer hints than markers -- the surplus marker goes bare",
-        "Je [[mange]] une [[pomme]]", ["eat"],
+        "Je [[mange]] une [[pomme]]",
+        ["eat"],
         "Je mange une pomme",
         "Je {{c1::mange::eat}} une {{c2::pomme}}",
     ),
     (
         "more hints than markers -- the surplus hint is dropped",
-        "Je [[mange]] une pomme", ["eat", "unused"],
+        "Je [[mange]] une pomme",
+        ["eat", "unused"],
         "Je mange une pomme",
         "Je {{c1::mange::eat}} une pomme",
     ),
     (
         "marker spanning several words",
-        "Je veux [[aller au cinema]] ce soir", ["go to the movies"],
+        "Je veux [[aller au cinema]] ce soir",
+        ["go to the movies"],
         "Je veux aller au cinema ce soir",
         "Je veux {{c1::aller au cinema::go to the movies}} ce soir",
     ),
     (
         "accented content survives intact",
-        "Il a [[brûlé]] le dîner", ["burned"],
+        "Il a [[brûlé]] le dîner",
+        ["burned"],
         "Il a brûlé le dîner",
         "Il a {{c1::brûlé::burned}} le dîner",
     ),
     (
         "apostrophe inside the marker",
-        "Il faut [[s'asseoir]] ici", ["to sit"],
+        "Il faut [[s'asseoir]] ici",
+        ["to sit"],
         "Il faut s'asseoir ici",
         "Il faut {{c1::s'asseoir::to sit}} ici",
     ),
     (
         "empty input",
-        "", [],
+        "",
+        [],
         "",
         "",
     ),
@@ -95,37 +105,43 @@ POSITIONAL = [
 PLACEMENT = [
     (
         "marker at start of string",
-        "[[Bonjour]] tout le monde", ["hello"],
+        "[[Bonjour]] tout le monde",
+        ["hello"],
         "Bonjour tout le monde",
         "{{c1::Bonjour::hello}} tout le monde",
     ),
     (
         "marker at end of string",
-        "Je dis [[bonjour]]", ["hello"],
+        "Je dis [[bonjour]]",
+        ["hello"],
         "Je dis bonjour",
         "Je dis {{c1::bonjour::hello}}",
     ),
     (
         "marker is the whole string",
-        "[[bonjour]]", ["hello"],
+        "[[bonjour]]",
+        ["hello"],
         "bonjour",
         "{{c1::bonjour::hello}}",
     ),
     (
         "marker inside parentheses",
-        "Je mange ([[une pomme]]) ici", ["an apple"],
+        "Je mange ([[une pomme]]) ici",
+        ["an apple"],
         "Je mange (une pomme) ici",
         "Je mange ({{c1::une pomme::an apple}}) ici",
     ),
     (
         "marker followed by a comma",
-        "Je [[mange]], puis je dors", ["eat"],
+        "Je [[mange]], puis je dors",
+        ["eat"],
         "Je mange, puis je dors",
         "Je {{c1::mange::eat}}, puis je dors",
     ),
     (
         "marker inside double quotes",
-        'Il dit "[[bonjour]]" ici', ["hello"],
+        'Il dit "[[bonjour]]" ici',
+        ["hello"],
         'Il dit "bonjour" ici',
         'Il dit "{{c1::bonjour::hello}}" ici',
     ),
@@ -133,7 +149,8 @@ PLACEMENT = [
 
 
 @pytest.mark.parametrize(
-    "label,text,hints,expected_plain,expected_cloze", POSITIONAL + PLACEMENT,
+    "label,text,hints,expected_plain,expected_cloze",
+    POSITIONAL + PLACEMENT,
     ids=[c[0] for c in POSITIONAL + PLACEMENT],
 )
 def test_render_positional(label, text, hints, expected_plain, expected_cloze):
@@ -180,7 +197,9 @@ INLINE = [
 
 
 @pytest.mark.parametrize(
-    "label,text,expected_plain,expected_cloze", INLINE, ids=[c[0] for c in INLINE],
+    "label,text,expected_plain,expected_cloze",
+    INLINE,
+    ids=[c[0] for c in INLINE],
 )
 def test_render_inline_hints(label, text, expected_plain, expected_cloze):
     plain, cloze_text = cloze.render(text, inline_hints=True)
@@ -202,8 +221,8 @@ def test_render_inline_hints(label, text, expected_plain, expected_cloze):
         "Est-ce que tu viens",
         "Le rendez-vous est demain",
         "C'est peut-etre vrai",
-        "Je mange - une pomme",       # a freestanding dash is punctuation
-        "Je -mange une pomme",        # would have been an orphan marker before
+        "Je mange - une pomme",  # a freestanding dash is punctuation
+        "Je -mange une pomme",  # would have been an orphan marker before
         "Je mange- une pomme",
         "c'est-a-dire",
     ],
@@ -230,7 +249,7 @@ def test_hyphenated_word_can_itself_be_marked():
         ("Je [[mange une pomme", "Je mange une pomme"),
         ("Je mange]] une pomme", "Je mange une pomme"),
         ("[[", ""),
-        ("[[]]", ""),   # too short to be a marker, so both brackets are stray
+        ("[[]]", ""),  # too short to be a marker, so both brackets are stray
     ],
 )
 def test_stray_brackets_are_stripped(text, expected):

@@ -11,38 +11,36 @@ import pytest
 
 from ankifier.csv_parser import parse_line
 
-
 # (line, word, article, function)
 CASES = [
-    ("manger",              "manger",   None,   None),
-    ("bonjour",             "bonjour",  None,   None),
-
+    ("manger", "manger", None, None),
+    ("bonjour", "bonjour", None, None),
     # -- "word (function)": the regex is anchored at both ends
-    ("manger (verb)",       "manger",   None,   "verb"),
-    ("glace (noun)",        "glace",    None,   "noun"),
+    ("manger (verb)", "manger", None, "verb"),
+    ("glace (noun)", "glace", None, "noun"),
     # trailing text after the parens defeats the end anchor, so the whole line
     # becomes the word
-    ("mange (verb) extra",  "mange (verb) extra", None, None),
-
+    ("mange (verb) extra", "mange (verb) extra", None, None),
     # -- "article word": the LAST token is taken as the word
-    ("la glace",            "glace",    "la",   None),
-    ("le livre",            "livre",    "le",   None),
-    ("un chat",             "chat",     "un",   None),
-    ("une maison",          "maison",   "une",  None),
-    ("des gens",            "gens",     "des",  None),
-    ("les enfants",         "enfants",  "les",  None),
+    ("la glace", "glace", "la", None),
+    ("le livre", "livre", "le", None),
+    ("un chat", "chat", "un", None),
+    ("une maison", "maison", "une", None),
+    ("des gens", "gens", "des", None),
+    ("les enfants", "enfants", "les", None),
     # an adjective between article and noun is silently dropped from `word`
-    ("la grande maison",    "maison",   "la",   None),
-
+    ("la grande maison", "maison", "la", None),
     # -- non-article leading tokens fall through to the plain-word branch,
     #    where `word` is the entire line
-    ("se promener",         "se promener",  None, None),
-    ("l'eau",               "l'eau",        None, None),
+    ("se promener", "se promener", None, None),
+    ("l'eau", "l'eau", None, None),
 ]
 
 
 @pytest.mark.parametrize(
-    "line,word,article,function", CASES, ids=[c[0] for c in CASES],
+    "line,word,article,function",
+    CASES,
+    ids=[c[0] for c in CASES],
 )
 def test_parse_line(line, word, article, function):
     entry = parse_line(line)

@@ -15,6 +15,7 @@ VALID_LEVELS = frozenset(get_args(CEFRLevel))
 @dataclass
 class WordEntry:
     """Parsed from one line of the CSV."""
+
     raw: str
     word: str
     article: str | None = None
@@ -32,6 +33,7 @@ class Level:
 @dataclass
 class Sense:
     """One sense of a word, as returned by Mistral."""
+
     sense_number: int
     sense_description: str
     sentence: str
@@ -42,5 +44,3 @@ class Sense:
     # Optional: the model does not always return a level, and it is for
     # reference only (not used on the Anki card), so absent beats invented.
     level: Level | None = None
-
-

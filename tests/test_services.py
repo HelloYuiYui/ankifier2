@@ -57,8 +57,11 @@ class FakeAnki:
 def anki(monkeypatch):
     fake = FakeAnki()
     for name in (
-        "check_connection", "ensure_deck", "store_media_file",
-        "add_cloze_note", "add_basic_note",
+        "check_connection",
+        "ensure_deck",
+        "store_media_file",
+        "add_cloze_note",
+        "add_basic_note",
     ):
         monkeypatch.setattr(services, name, getattr(fake, name))
     return fake
@@ -82,7 +85,10 @@ def tts(monkeypatch):
 
 def draft(**overrides) -> CardDraft:
     base = dict(
-        id="a#1", source_id="a", kind="generated", word="manger",
+        id="a#1",
+        source_id="a",
+        kind="generated",
+        word="manger",
         sentence="Je mange une pomme",
         cloze_sentence="Je {{c1::mange::eat}} une pomme",
         translation="I eat an apple",
@@ -94,10 +100,12 @@ def draft(**overrides) -> CardDraft:
 # Cloze preview
 # ---------------------------------------------------------------------------
 def test_render_cloze_is_batched_and_keeps_ids():
-    results = services.render_cloze([
-        ClozeText(id="x", text="Je [[mange:eat]] ici"),
-        ClozeText(id="y", text="rien ici"),
-    ])
+    results = services.render_cloze(
+        [
+            ClozeText(id="x", text="Je [[mange:eat]] ici"),
+            ClozeText(id="y", text="rien ici"),
+        ]
+    )
     assert [r.id for r in results] == ["x", "y"]
     assert results[0].plain == "Je mange ici"
     assert results[0].cloze == "Je {{c1::mange::eat}} ici"
@@ -116,10 +124,12 @@ def test_render_cloze_positional_mode_does_not_split_on_the_colon():
 # manual_draft
 # ---------------------------------------------------------------------------
 def test_manual_draft_with_cloze():
-    d = services.manual_draft("m1", "Il faut que tu [[sois:etre]] la", "You must be there", True)
+    d = services.manual_draft(
+        "m1", "Il faut que tu [[sois:etre]] la", "You must be there", True
+    )
     assert d.kind == "manual"
     assert d.id == "m1#1"
-    assert d.sentence == "Il faut que tu sois la"       # spoken, marker-free
+    assert d.sentence == "Il faut que tu sois la"  # spoken, marker-free
     assert d.cloze_sentence == "Il faut que tu {{c1::sois::etre}} la"
     assert d.translation == "You must be there"
     # The stem must not carry marker punctuation into the filename.
@@ -136,9 +146,13 @@ def test_manual_draft_without_cloze_takes_the_front_literally():
 # ---------------------------------------------------------------------------
 def sense(n=1, **kw):
     base = dict(
-        sense_number=n, sense_description="to eat", sentence="Je mange",
-        hidden_text="mange", hint="eat",
-        cloze_sentence="Je {{c1::mange::eat}}", translation="I eat",
+        sense_number=n,
+        sense_description="to eat",
+        sentence="Je mange",
+        hidden_text="mange",
+        hint="eat",
+        cloze_sentence="Je {{c1::mange::eat}}",
+        translation="I eat",
         level=Level(value="A1"),
     )
     return Sense(**{**base, **kw})
@@ -147,7 +161,8 @@ def sense(n=1, **kw):
 def test_generate_batch_fans_one_row_into_several_cards(monkeypatch, settings):
     monkeypatch.setattr(services, "_mistral_client", lambda: object())
     monkeypatch.setattr(
-        services.mistral_connector, "query_senses",
+        services.mistral_connector,
+        "query_senses",
         lambda c, e, lang: [sense(1), sense(2), sense(3)],
     )
     cards, errors = services.generate_batch(
@@ -162,7 +177,9 @@ def test_generate_batch_fans_one_row_into_several_cards(monkeypatch, settings):
 def test_generate_batch_keeps_submission_order(monkeypatch, settings):
     monkeypatch.setattr(services, "_mistral_client", lambda: object())
     monkeypatch.setattr(
-        services.mistral_connector, "query_senses", lambda c, e, lang: [sense()],
+        services.mistral_connector,
+        "query_senses",
+        lambda c, e, lang: [sense()],
     )
     rows = [GenerateRow(source_id=f"r{i}", text=f"w{i}") for i in range(5)]
     cards, _ = services.generate_batch(rows, settings)
@@ -197,7 +214,9 @@ def test_a_failing_row_becomes_an_error_and_does_not_stop_the_batch(
 def test_an_empty_sense_list_is_an_error_not_a_blank_card(monkeypatch, settings):
     """A blank card used to be addable, which sent an empty note to Anki."""
     monkeypatch.setattr(services, "_mistral_client", lambda: object())
-    monkeypatch.setattr(services.mistral_connector, "query_senses", lambda c, e, l: [])
+    monkeypatch.setattr(
+        services.mistral_connector, "query_senses", lambda c, e, lang: []
+    )
     cards, errors = services.generate_batch(
         [GenerateRow(source_id="a", text="manger")], settings
     )
@@ -209,12 +228,14 @@ def test_as_is_rows_use_the_translate_only_path(monkeypatch, settings):
     monkeypatch.setattr(services, "_mistral_client", lambda: object())
     used = []
     monkeypatch.setattr(
-        services.mistral_connector, "query_senses",
-        lambda c, e, l: used.append("query") or [sense()],
+        services.mistral_connector,
+        "query_senses",
+        lambda c, e, lang: used.append("query") or [sense()],
     )
     monkeypatch.setattr(
-        services.mistral_connector, "translate_as_is",
-        lambda c, e, l: used.append("as_is") or [sense()],
+        services.mistral_connector,
+        "translate_as_is",
+        lambda c, e, lang: used.append("as_is") or [sense()],
     )
     services.generate_batch(
         [
@@ -308,16 +329,25 @@ def test_a_failed_audio_still_creates_the_card(settings, anki, monkeypatch):
     result = services.add_one(draft(), settings)
     assert result.audio.state == "error"
     assert "elevenlabs down" in result.audio.detail
-    assert result.card.state == "ok"          # non-fatal, as it has always been
+    assert result.card.state == "ok"  # non-fatal, as it has always been
     assert result.audio_url is None
-    assert anki.media == []                   # nothing to store
+    assert anki.media == []  # nothing to store
     assert anki.notes[0]["audio_filename"] is None
 
 
 def test_a_duplicate_is_a_skip_not_an_error(settings, tts, monkeypatch):
-    fake = FakeAnki(fail_with=RuntimeError("AnkiConnect error: cannot create note because it is a duplicate"))
-    for name in ("check_connection", "ensure_deck", "store_media_file",
-                 "add_cloze_note", "add_basic_note"):
+    fake = FakeAnki(
+        fail_with=RuntimeError(
+            "AnkiConnect error: cannot create note because it is a duplicate"
+        )
+    )
+    for name in (
+        "check_connection",
+        "ensure_deck",
+        "store_media_file",
+        "add_cloze_note",
+        "add_basic_note",
+    ):
         monkeypatch.setattr(services, name, getattr(fake, name))
 
     result = services.add_one(draft(), settings)
@@ -327,8 +357,13 @@ def test_a_duplicate_is_a_skip_not_an_error(settings, tts, monkeypatch):
 
 def test_any_other_anki_failure_is_an_error(settings, tts, monkeypatch):
     fake = FakeAnki(fail_with=RuntimeError("AnkiConnect error: deck not found"))
-    for name in ("check_connection", "ensure_deck", "store_media_file",
-                 "add_cloze_note", "add_basic_note"):
+    for name in (
+        "check_connection",
+        "ensure_deck",
+        "store_media_file",
+        "add_cloze_note",
+        "add_basic_note",
+    ):
         monkeypatch.setattr(services, name, getattr(fake, name))
 
     result = services.add_one(draft(), settings)
@@ -369,7 +404,7 @@ def test_dry_run_writes_nothing_and_spends_nothing(settings, anki, tts):
     assert [r.audio.state for r in results] == ["skipped", "skipped"]
     assert anki.notes == []
     assert anki.media == []
-    assert tts == []          # no credits spent
+    assert tts == []  # no credits spent
 
 
 def test_dry_run_still_reports_the_deck_and_note_type(settings, anki, tts):

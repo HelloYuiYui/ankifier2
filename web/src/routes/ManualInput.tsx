@@ -25,15 +25,9 @@ export function ManualInput() {
   const [error, setError] = useState<string | null>(null)
 
   // One request for the whole table, not one per row.
-  const clozeRows = useMemo(
-    () => rows.filter((r) => r.cloze && r.front.trim()),
-    [rows],
-  )
+  const clozeRows = useMemo(() => rows.filter((r) => r.cloze && r.front.trim()), [rows])
   const debounced = useDebounced(
-    useMemo(
-      () => clozeRows.map((r) => ({ id: r.id, text: r.front })),
-      [clozeRows],
-    ),
+    useMemo(() => clozeRows.map((r) => ({ id: r.id, text: r.front })), [clozeRows]),
     150,
   )
 
@@ -112,7 +106,7 @@ export function ManualInput() {
     })
 
     setDrafts(drafts)
-    navigate('/review')
+    void navigate('/review')
   }
 
   return (
@@ -167,6 +161,7 @@ export function ManualInput() {
                     <label className="check">
                       <input
                         type="checkbox"
+                        aria-label="Cloze"
                         checked={row.cloze}
                         onChange={(e) => patch(row.id, { cloze: e.target.checked })}
                       />
@@ -188,7 +183,11 @@ export function ManualInput() {
         </table>
       </div>
 
-      {error && <div className="banner error" style={{ marginTop: 14 }}>{error}</div>}
+      {error && (
+        <div className="banner error" style={{ marginTop: 14 }}>
+          {error}
+        </div>
+      )}
 
       <div className="actions">
         <button onClick={addRow}>Add row</button>

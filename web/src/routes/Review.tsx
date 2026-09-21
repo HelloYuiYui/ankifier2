@@ -43,7 +43,7 @@ export function Review() {
     try {
       const { results } = await api.addCards({ cards: kept, dryRun })
       setResults(results)
-      navigate('/results')
+      void navigate('/results')
     } catch (e) {
       const message = e instanceof ApiError ? e.message : String(e)
       setError(message)
@@ -64,9 +64,10 @@ export function Review() {
     )
   }
 
-  const edit = (id: string, field: keyof CardDraft) => (
-    e: React.ChangeEvent<HTMLTextAreaElement>,
-  ) => updateDraft(id, { [field]: e.target.value })
+  const edit =
+    (id: string, field: keyof CardDraft) =>
+    (e: React.ChangeEvent<HTMLTextAreaElement>) =>
+      updateDraft(id, { [field]: e.target.value })
 
   return (
     <div className="panel">
@@ -74,15 +75,14 @@ export function Review() {
         Review — {kept.length} of {drafts.length} selected
       </h2>
       <p className="small muted" style={{ marginTop: 0 }}>
-        The spoken text, card front and back are editable. Editing the spoken text
-        gives the card its own audio file — it never overwrites a card you have
-        already made.
+        The spoken text, card front and back are editable. Editing the spoken text gives
+        the card its own audio file — it never overwrites a card you have already made.
       </p>
 
       {errors.length > 0 && (
         <div className="banner warn">
-          {errors.length} row{errors.length > 1 ? 's' : ''} produced nothing and
-          cannot be added:
+          {errors.length} row{errors.length > 1 ? 's' : ''} produced nothing and cannot
+          be added:
           {errors.map((e) => (
             <div key={e.sourceId} className="small">
               <strong>{e.text}</strong> — {e.message}
@@ -157,7 +157,11 @@ export function Review() {
         </table>
       </div>
 
-      {error && <div className="banner error" style={{ marginTop: 14 }}>{error}</div>}
+      {error && (
+        <div className="banner error" style={{ marginTop: 14 }}>
+          {error}
+        </div>
+      )}
 
       <div className="actions">
         <Link to={source === 'manual' ? '/manual' : '/'}>
@@ -178,8 +182,8 @@ export function Review() {
       </div>
 
       <p className="hint-line">
-        <strong>Dry run</strong> checks decks, filenames and note types without
-        writing to Anki or spending ElevenLabs credits.
+        <strong>Dry run</strong> checks decks, filenames and note types without writing
+        to Anki or spending ElevenLabs credits.
       </p>
     </div>
   )

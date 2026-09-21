@@ -89,9 +89,7 @@ export function Results() {
                 <tr key={r.id}>
                   <td>
                     <div>{draft?.word ?? r.id}</div>
-                    {draft && (
-                      <div className="small muted">{draft.sentence}</div>
-                    )}
+                    {draft && <div className="small muted">{draft.sentence}</div>}
                   </td>
                   <td className="small muted">{r.deck}</td>
                   <td>
@@ -116,13 +114,17 @@ export function Results() {
         </table>
       </div>
 
-      {error && <div className="banner error" style={{ marginTop: 14 }}>{error}</div>}
+      {error && (
+        <div className="banner error" style={{ marginTop: 14 }}>
+          {error}
+        </div>
+      )}
 
       <div className="actions">
         <button
           onClick={() => {
             resetAll()
-            navigate('/')
+            void navigate('/')
           }}
         >
           Start over

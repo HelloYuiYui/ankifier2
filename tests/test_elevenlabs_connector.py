@@ -74,7 +74,8 @@ def test_changing_voice_changes_the_name(monkeypatch):
     """The file holds audio, not text, so the voice is part of its identity."""
     before = el.audio_filename("Je mange")
     monkeypatch.setattr(
-        el, "get_settings",
+        el,
+        "get_settings",
         lambda: Settings(
             _env_file=None, elevenlabs_voice_id="voice-b", elevenlabs_model="model-a"
         ),
@@ -98,7 +99,7 @@ def test_long_text_is_truncated_but_still_unique():
     long_a = "a" * 300
     long_b = "a" * 299 + "b"
     name_a, name_b = el.audio_filename(long_a), el.audio_filename(long_b)
-    assert name_a != name_b          # the digest survives truncation
+    assert name_a != name_b  # the digest survives truncation
     assert len(name_a) < 80
 
 

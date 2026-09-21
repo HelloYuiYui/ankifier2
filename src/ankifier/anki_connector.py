@@ -56,13 +56,16 @@ def ensure_deck(deck_name: str) -> None:
 
 def store_media_file(filename: str, path: str) -> None:
     """Store an audio file in Anki's media folder via AnkiConnect."""
-    with open(path, 'rb') as f:
-        data = base64.b64encode(f.read()).decode('utf-8')
+    with open(path, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
 
-    _invoke("storeMediaFile", {
-        "filename": filename,
-        "data": data,
-    })
+    _invoke(
+        "storeMediaFile",
+        {
+            "filename": filename,
+            "data": data,
+        },
+    )
 
 
 def add_cloze_note(

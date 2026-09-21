@@ -1,32 +1,45 @@
-# React + TypeScript + Vite
+# web
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The Ankifier SPA: React + TypeScript, built by Vite.
 
-Currently, two official plugins are available:
+This package is a member of the pnpm workspace at the repo root, so install from
+there (`pnpm install`), not from here. Every script below can be run either as
+`pnpm --filter web <script>` from the root or as `pnpm <script>` from this
+directory.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```bash
+pnpm dev             # :5173, proxies /api to the Python server on :8000
+pnpm build           # writes the bundle into ../src/ankifier/static/
+pnpm preview         # serves that build
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+pnpm format          # prettier, writes
+pnpm format:check    # prettier, reports (this is what CI runs)
+pnpm lint            # eslint
+pnpm lint:fix        # eslint --fix
+pnpm typecheck       # tsc -b --noEmit
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Linting and formatting
+
+Prettier owns formatting; `eslint-config-prettier` is last in the ESLint config
+and switches off every rule that would disagree with it, so the two never argue
+over the same line. Prettier is configured to the style the code was already
+written in — no semicolons, single quotes, 88 columns, matching Ruff's width on
+the Python side.
+
+ESLint is **type-aware** (`recommendedTypeChecked`): it resolves each file
+through the tsconfig, which makes it slower than a syntax-only linter but lets
+it see unawaited promises and `any` leaking out of untyped data. Two deliberate
+settings in `eslint.config.js`:
+
+- `no-misused-promises` exempts JSX attributes, because an `async` `onClick` is
+  the normal way to run a request from a handler.
+- `src/api/client.ts` relaxes the `no-unsafe-*` rules. It is the one place
+  untyped data enters — `response.json()` and `import.meta.env` are both `any`
+  — and the code guards them by hand.
+
+`no-unused-vars` is off because `tsconfig.app.json` already sets
+`noUnusedLocals` and `noUnusedParameters`, which fail the build instead.
+
+The build output in `../src/ankifier/static/` is generated and never linted or
+committed.

@@ -34,7 +34,8 @@ def client(settings):
 def anki_down(monkeypatch):
     monkeypatch.setattr(api.anki_connector, "get_version", lambda: None)
     monkeypatch.setattr(
-        api.anki_connector, "deck_names",
+        api.anki_connector,
+        "deck_names",
         lambda: (_ for _ in ()).throw(RuntimeError("not reachable")),
     )
 
@@ -115,7 +116,10 @@ def test_cloze_preview_is_batched(client):
 
 
 def test_cloze_preview_rejects_a_malformed_body(client):
-    assert client.post("/api/cloze/preview", json={"texts": [{"id": "a"}]}).status_code == 422
+    assert (
+        client.post("/api/cloze/preview", json={"texts": [{"id": "a"}]}).status_code
+        == 422
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -123,9 +127,14 @@ def test_cloze_preview_rejects_a_malformed_body(client):
 # ---------------------------------------------------------------------------
 def test_generate_returns_cards_and_errors(client, monkeypatch):
     card = CardDraft(
-        id="a#1", source_id="a", kind="generated", word="manger",
-        sentence="Je mange", cloze_sentence="Je {{c1::mange}}",
-        translation="I eat", level="A1",
+        id="a#1",
+        source_id="a",
+        kind="generated",
+        word="manger",
+        sentence="Je mange",
+        cloze_sentence="Je {{c1::mange}}",
+        translation="I eat",
+        level="A1",
     )
     monkeypatch.setattr(services, "generate_batch", lambda rows, s: ([card], []))
 
@@ -170,8 +179,12 @@ def test_generate_rejects_an_unknown_kind(client):
 # ---------------------------------------------------------------------------
 def card_payload(**overrides):
     base = {
-        "id": "a#1", "sourceId": "a", "kind": "generated", "word": "manger",
-        "sentence": "Je mange", "clozeSentence": "Je {{c1::mange}}",
+        "id": "a#1",
+        "sourceId": "a",
+        "kind": "generated",
+        "word": "manger",
+        "sentence": "Je mange",
+        "clozeSentence": "Je {{c1::mange}}",
         "translation": "I eat",
     }
     return {**base, **overrides}
@@ -179,11 +192,15 @@ def card_payload(**overrides):
 
 def test_add_returns_per_card_results(client, monkeypatch):
     monkeypatch.setattr(
-        services, "add_cards",
+        services,
+        "add_cards",
         lambda cards, s, dry_run=False: [
             AddResult(
-                id=c.id, audio=Status(state="ok"), card=Status(state="ok"),
-                deck="French::Vocabulary", audio_url="/api/audio/x.mp3",
+                id=c.id,
+                audio=Status(state="ok"),
+                card=Status(state="ok"),
+                deck="French::Vocabulary",
+                audio_url="/api/audio/x.mp3",
             )
             for c in cards
         ],
@@ -197,6 +214,7 @@ def test_add_returns_per_card_results(client, monkeypatch):
 
 def test_add_turns_a_preflight_failure_into_503(client, monkeypatch):
     """A batch-wide problem is one status code, not N identical card errors."""
+
     def boom(cards, s, dry_run=False):
         raise services.PreflightError("Anki is not reachable")
 
@@ -209,7 +227,8 @@ def test_add_turns_a_preflight_failure_into_503(client, monkeypatch):
 def test_add_passes_dry_run_through(client, monkeypatch):
     seen = {}
     monkeypatch.setattr(
-        services, "add_cards",
+        services,
+        "add_cards",
         lambda cards, s, dry_run=False: seen.update(dry_run=dry_run) or [],
     )
     client.post("/api/cards/add", json={"cards": [card_payload()], "dryRun": True})
@@ -221,7 +240,9 @@ def test_the_client_cannot_choose_a_deck(client, monkeypatch):
     in the payload is ignored rather than honoured."""
     seen = []
     monkeypatch.setattr(
-        services, "add_cards", lambda cards, s, dry_run=False: seen.extend(cards) or [],
+        services,
+        "add_cards",
+        lambda cards, s, dry_run=False: seen.extend(cards) or [],
     )
     client.post(
         "/api/cards/add",

@@ -118,7 +118,9 @@ def generate_batch(
         # "As is" skips sense generation entirely: the text is already the card,
         # so the model is only asked for its translation.
         run = (
-            mistral_connector.translate_as_is if as_is else mistral_connector.query_senses
+            mistral_connector.translate_as_is
+            if as_is
+            else mistral_connector.query_senses
         )
         try:
             senses = run(client, entry, settings.target_lang)
@@ -233,7 +235,9 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
         return AddResult(
             id=card.id,
             audio=Status(state="skipped", detail=f"dry run -- would write {filename}"),
-            card=Status(state="skipped", detail=f"dry run -- would add a {note_type} note"),
+            card=Status(
+                state="skipped", detail=f"dry run -- would add a {note_type} note"
+            ),
             deck=deck,
         )
 

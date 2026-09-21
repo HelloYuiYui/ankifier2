@@ -38,7 +38,7 @@ separate hosts later with no code change.
 
 ```bash
 poetry install
-cd web && pnpm install
+pnpm install                 # workspace root; installs web/ too
 ```
 
 Create a `.env` in the repo root:
@@ -136,8 +136,30 @@ preview is reused by the later add rather than generated twice.
 
 ```bash
 poetry run pytest
-cd web && pnpm exec tsc -b && pnpm lint
 ```
 
 The Python tests fake every connector, so nothing hits the network and no test
 spends credits or touches your collection.
+
+## Checks
+
+The front-end runs through pnpm from the repo root, the back-end through Poetry.
+CI runs exactly these.
+
+```bash
+pnpm format:check            # prettier
+pnpm lint                    # eslint
+pnpm typecheck               # tsc -b --noEmit
+
+poetry run ruff check .      # lint
+poetry run ruff format .     # format
+```
+
+`pnpm format` and `pnpm lint:fix` write the fixes rather than reporting them.
+Each root script is a thin `pnpm --filter web ...`, so `pnpm --filter web lint`
+and `cd web && pnpm lint` do the same thing.
+
+Prettier owns formatting and `eslint-config-prettier` switches off every rule
+that would disagree with it, so the two never fight. ESLint is type-aware: it
+reads the project's tsconfig, which is why `pnpm lint` is slower than a
+syntax-only linter and catches things like an unawaited promise.

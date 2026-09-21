@@ -46,7 +46,9 @@ def _split_inline_hint(body: str) -> tuple[str, str]:
     return head, tail
 
 
-def render(text: str, part_hints: list[str] | None = None, inline_hints: bool = False) -> tuple[str, str]:
+def render(
+    text: str, part_hints: list[str] | None = None, inline_hints: bool = False
+) -> tuple[str, str]:
     """Return (plain_text, cloze_text) for a marked-up source text.
 
     Both outputs are free of the [[...]] markers themselves: plain_text is what
@@ -65,7 +67,7 @@ def render(text: str, part_hints: list[str] | None = None, inline_hints: bool = 
     pos = 0
 
     for n, match in enumerate(MARKER_RE.finditer(text), start=1):
-        literal = _strip_stray_markers(text[pos:match.start()])
+        literal = _strip_stray_markers(text[pos : match.start()])
         plain.append(literal)
         cloze.append(literal)
 
@@ -75,7 +77,9 @@ def render(text: str, part_hints: list[str] | None = None, inline_hints: bool = 
         else:
             hint = part_hints[n - 1] if n - 1 < len(part_hints) else ""
         plain.append(body)
-        cloze.append(f"{{{{c{n}::{body}::{hint}}}}}" if hint else f"{{{{c{n}::{body}}}}}")
+        cloze.append(
+            f"{{{{c{n}::{body}::{hint}}}}}" if hint else f"{{{{c{n}::{body}}}}}"
+        )
         pos = match.end()
 
     tail = _strip_stray_markers(text[pos:])

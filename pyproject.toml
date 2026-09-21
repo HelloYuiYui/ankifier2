@@ -23,6 +23,41 @@ packages = [
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.1.1"
+ruff = "^0.16.8"
+
+[tool.ruff]
+# Matches the front-end's Prettier width, so wrapped code reads the same on
+# both sides of the repo.
+line-length = 88
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle
+    "F",   # pyflakes
+    "I",   # import sorting
+    "B",   # bugbear: mutable defaults, unused loop vars, ...
+    "UP",  # pyupgrade: syntax the pinned Python already supports
+    "SIM", # flake8-simplify
+]
+ignore = [
+    # `ruff format` already wraps everything it safely can. What is left over
+    # is long string literals -- here, the Mistral prompts, whose whitespace is
+    # part of the text sent to the model and must not be rewrapped.
+    "E501",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's whole dependency-injection design is a call in an argument default,
+# so B008 would fire on every route. These are the calls it may ignore.
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+]
 
 [project.scripts]
 ankifier = "ankifier.api:run"
