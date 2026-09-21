@@ -11,7 +11,7 @@ from jinja2 import Environment, FileSystemLoader
 import jinja2
 
 from ankifier.csv_parser import parse_line
-from ankifier import local_connector, mistral_connector
+from ankifier import cloze, local_connector, mistral_connector
 from ankifier.elevenlabs_connector import (
     init_client as init_elevenlabs,
     sanitize_filename,
@@ -70,6 +70,9 @@ def _config() -> dict:
         # "As is" cards are hand-written grammar material, not generated
         # vocabulary, so they get their own deck.
         "as_is_deck_name": os.environ.get("ANKI_ASIS_DECK", "French::Grammar"),
+        # Manual front/back pairs are written entirely by hand, so they are
+        # neither generated vocabulary nor as-is grammar.
+        "manual_deck_name": os.environ.get("ANKI_MANUAL_DECK", "French::Manual"),
         "target_lang": os.environ.get("TARGET_LANG", "French"),
         "audio_dir": os.environ.get("AUDIO_DIR", "audio"),
         "tags": os.environ.get("ANKI_TAGS", "ankifier").split(","),
@@ -77,11 +80,23 @@ def _config() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Page 1 – Word input
+# The two setups. "Generate" hands the text to Mistral; "Manual" is front/back
+# pairs typed out in full, with no AI call anywhere in the path.
 # ---------------------------------------------------------------------------
-@app.get("/", response_class=HTMLResponse)
+@app.get("/")
+async def page_root():
+    return RedirectResponse("/generate", status_code=307)
+
+
+@app.get("/generate", response_class=HTMLResponse)
 async def page_input(request: Request):
-    html = render_template("input.html", request=request)
+    html = render_template("input.html", request=request, mode="generate")
+    return HTMLResponse(html)
+
+
+@app.get("/manual", response_class=HTMLResponse)
+async def page_manual_input(request: Request):
+    html = render_template("manual_input.html", request=request, mode="manual")
     return HTMLResponse(html)
 
 
@@ -116,7 +131,7 @@ def _parse_rows(rows: str | None, words: str | None) -> list[tuple[str, bool]]:
     return []
 
 
-@app.post("/generate")
+@app.post("/generate/run")
 async def generate(
     request: Request,
     rows: str = Form(None),
@@ -125,7 +140,7 @@ async def generate(
     sid = _sid(request)
     word_lines = _parse_rows(rows, words)
     if not word_lines:
-        return RedirectResponse("/", status_code=303)
+        return RedirectResponse("/generate", status_code=303)
 
     config = _config()
     ai_client, query = _init_llm()
@@ -165,19 +180,104 @@ async def generate(
                 "translation": "",
             })
 
-    _store[sid] = {"results": results, "config": config}
-    return RedirectResponse("/review", status_code=303)
+    _store[sid] = {"results": results, "config": config, "mode": "generate"}
+    return RedirectResponse("/generate/review", status_code=303)
 
 
 # ---------------------------------------------------------------------------
 # Page 2 – Review senses
 # ---------------------------------------------------------------------------
-@app.get("/review", response_class=HTMLResponse)
+@app.get("/generate/review", response_class=HTMLResponse)
 async def page_review(request: Request):
     sid = _sid(request)
     data = _store.get(sid, {})
-    results = data.get("results", [])
-    html = render_template("review.html", request=request, results=results)
+    # A batch belongs to the setup that built it, so switching tabs mid-flow
+    # shows an empty page rather than the other setup's rows in this table.
+    results = data.get("results", []) if data.get("mode", "generate") == "generate" else []
+    html = render_template("review.html", request=request, results=results, mode="generate")
+    return HTMLResponse(html)
+
+
+# ---------------------------------------------------------------------------
+# POST – build manual pairs (no AI call anywhere in this path)
+# ---------------------------------------------------------------------------
+def _parse_manual_rows(rows: str | None) -> list[dict]:
+    """Return [{front, back, cloze}, ...] from the manual input form.
+
+    A row needs a front to be a card at all; a blank back is allowed, since a
+    fully-cloze front carries its own answer.
+    """
+    if not rows:
+        return []
+    try:
+        parsed = json.loads(rows)
+    except (ValueError, TypeError):
+        return []
+
+    out = []
+    for item in parsed:
+        if not isinstance(item, dict):
+            continue
+        front = str(item.get("front", "")).strip()
+        if not front:
+            continue
+        out.append({
+            "front": front,
+            "back": str(item.get("back", "")).strip(),
+            "cloze": bool(item.get("cloze")),
+        })
+    return out
+
+
+def _manual_result(pair: dict) -> dict:
+    """Turn one typed pair into a result row of the shape /add uses.
+
+    With "cloze" ticked the front's -word:hint- markers become {{c1::...}}
+    deletions; unticked, the front is taken literally, markers and all. Either
+    way `sentence` is the marker-free text -- that is what goes to ElevenLabs,
+    so a hint is never read aloud.
+    """
+    if pair["cloze"]:
+        plain, cloze_text = cloze.render_manual(pair["front"])
+    else:
+        plain = cloze_text = pair["front"]
+
+    return {
+        "word": pair["front"],
+        "manual": True,
+        "as_is": False,
+        "sense_number": 1,
+        "sense_description": "",
+        # An audio filename built from the raw front would carry the marker
+        # punctuation, so name the file after the spoken text instead.
+        "audio_stem": plain,
+        "sentence": plain,
+        "cloze_sentence": cloze_text,
+        "hidden_text": "",
+        "hint": "",
+        "translation": pair["back"],
+        "level": None,
+    }
+
+
+@app.post("/manual/run")
+async def manual_run(request: Request, rows: str = Form(None)):
+    sid = _sid(request)
+    pairs = _parse_manual_rows(rows)
+    if not pairs:
+        return RedirectResponse("/manual", status_code=303)
+
+    results = [_manual_result(pair) for pair in pairs]
+    _store[sid] = {"results": results, "config": _config(), "mode": "manual"}
+    return RedirectResponse("/manual/review", status_code=303)
+
+
+@app.get("/manual/review", response_class=HTMLResponse)
+async def page_manual_review(request: Request):
+    sid = _sid(request)
+    data = _store.get(sid, {})
+    results = data.get("results", []) if data.get("mode") == "manual" else []  # see page_review
+    html = render_template("manual_review.html", request=request, results=results, mode="manual")
     return HTMLResponse(html)
 
 
@@ -186,6 +286,8 @@ async def page_review(request: Request):
 # ---------------------------------------------------------------------------
 def _deck_for(row: dict, config: dict) -> str:
     """Return the deck a result row belongs in."""
+    if row.get("manual"):
+        return config.get("manual_deck_name", _config()["manual_deck_name"])
     if row.get("as_is"):
         return config.get("as_is_deck_name", _config()["as_is_deck_name"])
     return config["deck_name"]
@@ -195,17 +297,30 @@ def _tags_for(row: dict, config: dict) -> list[str]:
     """Return the tags for a result row, marking as-is cards so they can be
     found (and re-styled) separately from generated vocabulary."""
     tags = list(config["tags"])
-    if row.get("as_is") and "as-is" not in tags:
-        tags.append("as-is")
+    for flag, tag in (("as_is", "as-is"), ("manual", "manual")):
+        if row.get(flag) and tag not in tags:
+            tags.append(tag)
     return tags
 
 
-@app.post("/add-to-anki")
-async def add_to_anki(request: Request):
+@app.post("/generate/add")
+async def generate_add(request: Request):
+    return await _add_to_anki(request, mode="generate")
+
+
+@app.post("/manual/add")
+async def manual_add(request: Request):
+    return await _add_to_anki(request, mode="manual")
+
+
+async def _add_to_anki(request: Request, mode: str):
+    """Audio + Anki for the kept rows. Shared by both setups: by this point a
+    manual pair and a generated sense are the same shape of row."""
     sid = _sid(request)
     data = _store.get(sid, {})
     results = data.get("results", [])
     config = data.get("config", _config())
+    review_url = f"/{mode}/review"
 
     form = await request.form()
     keep_indices = set()
@@ -220,7 +335,7 @@ async def add_to_anki(request: Request):
     kept = [r for i, r in enumerate(results) if i in keep_indices]
 
     if not kept:
-        return RedirectResponse("/review", status_code=303)
+        return RedirectResponse(review_url, status_code=303)
 
     # Ensure audio dir exists
     audio_dir = config["audio_dir"]
@@ -240,7 +355,7 @@ async def add_to_anki(request: Request):
 
     for row in kept:
         # An as-is "word" is a whole sentence, so cap the filename stem.
-        word_safe = sanitize_filename(row["word"])[:60]
+        word_safe = sanitize_filename(row.get("audio_stem") or row["word"])[:60]
         filename = f"{word_safe}_{row['sense_number']}.mp3"
         output_path = os.path.join(audio_dir, filename)
 
@@ -295,9 +410,9 @@ async def add_to_anki(request: Request):
         })
 
     # Store summary and config for potential retry
-    _store[sid] = {"summary": summary, "config": config}
+    _store[sid] = {"summary": summary, "config": config, "mode": mode}
 
-    html = render_template("result.html", request=request, summary=summary)
+    html = render_template("result.html", request=request, summary=summary, mode=mode)
     return HTMLResponse(html)
 
 
