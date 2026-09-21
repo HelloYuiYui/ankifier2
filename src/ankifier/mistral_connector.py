@@ -1,5 +1,4 @@
 import json
-import os
 
 from mistralai import Mistral
 
@@ -11,13 +10,18 @@ from ankifier.cloze import (
     strip_markers,
 )
 from ankifier.models import VALID_LEVELS, Level, Sense, WordEntry
+from ankifier.settings import get_settings
+
 
 def init_client() -> Mistral:
-    """Create and return a Mistral client using AI_KEY from environment."""
-    api_key = os.environ.get("AI_KEY")
-    if not api_key:
+    """Create and return a Mistral client using AI_KEY."""
+    settings = get_settings()
+    if not settings.ai_key:
         raise ValueError("AI_KEY environment variable is not set")
-    return Mistral(api_key=api_key)
+    return Mistral(
+        api_key=settings.ai_key,
+        timeout_ms=int(settings.mistral_timeout * 1000),
+    )
 
 
 def build_prompt(entry: WordEntry, target_lang: str) -> str:
@@ -30,7 +34,13 @@ def build_prompt(entry: WordEntry, target_lang: str) -> str:
     if entry.article:
         extra_context += f' It is commonly used with the article(s): {entry.article}.'
 
-    return f"""Given the {target_lang} word "{word_desc}", provide UP TO 3 (can be less) of its most common distinct senses. If senses are similar, you MUST combine them into one. If there are less than 3 senses for the word, provide however many there are, DO NOT pad the list. Format should be as below:"""
+    return (
+        f'Given the {target_lang} word "{word_desc}",{extra_context} provide UP TO 3 '
+        "(can be less) of its most common distinct senses. If senses are similar, "
+        "you MUST combine them into one. If there are less than 3 senses for the "
+        "word, provide however many there are, DO NOT pad the list. Format should "
+        "be as below:"
+    )
 
 def clean_sense(s: dict) -> dict:
     """Strip markdown emphasis from a raw sense dict's string fields.
@@ -89,7 +99,7 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
     user_prompt = build_prompt(entry, target_lang)
 
     response = client.chat.complete(
-        model="ministral-14b-latest", # model="mistral-medium-latest",
+        model=get_settings().mistral_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -245,7 +255,7 @@ def translate_as_is(client: Mistral, entry: WordEntry, target_lang: str) -> list
     )
 
     response = client.chat.complete(
-        model="ministral-14b-latest",
+        model=get_settings().mistral_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": build_as_is_prompt(plain_text, parts, target_lang)},

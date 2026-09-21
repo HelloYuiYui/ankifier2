@@ -1,4 +1,11 @@
-from dataclasses import dataclass, field
+"""Internal dataclasses used between the connectors and services.
+
+Not the wire contract -- that is schemas.py. These exist because the connectors
+predate the API and still speak in Sense/WordEntry; services.py is where a Sense
+becomes a CardDraft.
+"""
+
+from dataclasses import dataclass
 from typing import Literal, get_args
 
 CEFRLevel = Literal["A1", "A2", "B1", "B2", "C1", "C2"]
@@ -37,18 +44,3 @@ class Sense:
     level: Level | None = None
 
 
-@dataclass
-class WordResult:
-    """Full result for one word after Mistral processing."""
-    entry: WordEntry
-    senses: list[Sense] = field(default_factory=list)
-
-
-@dataclass
-class CardData:
-    """Everything needed to create one Anki card."""
-    front: str
-    back_text: str
-    audio_path: str
-    audio_filename: str
-    tags: list[str] = field(default_factory=list)
