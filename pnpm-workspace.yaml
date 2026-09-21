@@ -1,0 +1,4 @@
+# The front-end lives in web/; this workspace exists so its scripts can be
+# driven from the repo root, e.g. `pnpm --filter web lint`.
+packages:
+  - web

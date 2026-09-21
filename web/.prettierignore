@@ -1,0 +1,8 @@
+node_modules
+dist
+
+# Vite build output, written into the Python package by `pnpm build`.
+../src/ankifier/static
+
+# Lockfiles are machine-written.
+pnpm-lock.yaml

@@ -21,7 +21,7 @@ def parse_line(line: str, as_is: bool = False) -> WordEntry:
         return WordEntry(raw=line, word=line, as_is=True)
 
     # Format 3: word (function) e.g. "promener (verb)"
-    func_match = re.match(r'^(.+?)\s*\((\w+)\)$', line)
+    func_match = re.match(r"^(.+?)\s*\((\w+)\)$", line)
     if func_match:
         word_part = func_match.group(1).strip()
         function = func_match.group(2).strip()
@@ -32,7 +32,7 @@ def parse_line(line: str, as_is: bool = False) -> WordEntry:
     tokens = line.split()
     if len(tokens) > 1:
         # Check if first token looks like a French article
-        french_articles = {'le', 'la', 'les', 'un', 'une', 'des', "l'"}
+        french_articles = {"le", "la", "les", "un", "une", "des", "l'"}
         if tokens[0].lower() in french_articles:
             return WordEntry(raw=line, word=tokens[-1], article=tokens[0])
 
@@ -42,7 +42,7 @@ def parse_line(line: str, as_is: bool = False) -> WordEntry:
 def read_csv(file_path: str) -> list[WordEntry]:
     """Read a CSV file and return a list of WordEntry objects."""
     entries = []
-    with open(file_path, 'r', encoding='utf-8') as f:
+    with open(file_path, encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if line:

@@ -1,23 +1,24 @@
 import json
-import os
 
 from mistralai import Mistral
 
 from ankifier.cloze import (
-    MARKER_RE,
-    build_as_is_cloze,
     extract_marked_parts,
     render_as_is,
-    strip_markers,
 )
 from ankifier.models import VALID_LEVELS, Level, Sense, WordEntry
+from ankifier.settings import get_settings
+
 
 def init_client() -> Mistral:
-    """Create and return a Mistral client using AI_KEY from environment."""
-    api_key = os.environ.get("AI_KEY")
-    if not api_key:
+    """Create and return a Mistral client using AI_KEY."""
+    settings = get_settings()
+    if not settings.ai_key:
         raise ValueError("AI_KEY environment variable is not set")
-    return Mistral(api_key=api_key)
+    return Mistral(
+        api_key=settings.ai_key,
+        timeout_ms=int(settings.mistral_timeout * 1000),
+    )
 
 
 def build_prompt(entry: WordEntry, target_lang: str) -> str:
@@ -26,11 +27,18 @@ def build_prompt(entry: WordEntry, target_lang: str) -> str:
     extra_context = ""
 
     if entry.function:
-        extra_context += f' This word is a {entry.function}.'
+        extra_context += f" This word is a {entry.function}."
     if entry.article:
-        extra_context += f' It is commonly used with the article(s): {entry.article}.'
+        extra_context += f" It is commonly used with the article(s): {entry.article}."
 
-    return f"""Given the {target_lang} word "{word_desc}", provide UP TO 3 (can be less) of its most common distinct senses. If senses are similar, you MUST combine them into one. If there are less than 3 senses for the word, provide however many there are, DO NOT pad the list. Format should be as below:"""
+    return (
+        f'Given the {target_lang} word "{word_desc}",{extra_context} provide UP TO 3 '
+        "(can be less) of its most common distinct senses. If senses are similar, "
+        "you MUST combine them into one. If there are less than 3 senses for the "
+        "word, provide however many there are, DO NOT pad the list. Format should "
+        "be as below:"
+    )
+
 
 def clean_sense(s: dict) -> dict:
     """Strip markdown emphasis from a raw sense dict's string fields.
@@ -52,9 +60,9 @@ def _build_cloze(sentence: str, hidden_text: str, hint: str) -> str:
 
     if idx != -1:
         # Preserve original casing from the sentence
-        original = sentence[idx:idx + len(hidden_text)]
+        original = sentence[idx : idx + len(hidden_text)]
         cloze = f"{{{{c1::{original}::{hint}}}}}"
-        return sentence[:idx] + cloze + sentence[idx + len(hidden_text):]
+        return sentence[:idx] + cloze + sentence[idx + len(hidden_text) :]
 
     # Fallback: if exact match not found, prepend cloze to sentence
     return f"{{{{c1::{hidden_text}::{hint}}}}} - {sentence}"
@@ -89,7 +97,7 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
     user_prompt = build_prompt(entry, target_lang)
 
     response = client.chat.complete(
-        model="ministral-14b-latest", # model="mistral-medium-latest",
+        model=get_settings().mistral_model,
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
@@ -111,9 +119,19 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
                                     "hidden_text": {"type": "string"},
                                     "hint": {"type": "string"},
                                     "translation": {"type": "string"},
-                                    "level": {"type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"]},
+                                    "level": {
+                                        "type": "string",
+                                        "enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
+                                    },
                                 },
-                                "required": ["sense", "sentence", "hidden_text", "hint", "translation", "level"],
+                                "required": [
+                                    "sense",
+                                    "sentence",
+                                    "hidden_text",
+                                    "hint",
+                                    "translation",
+                                    "level",
+                                ],
                                 "additionalProperties": False,
                             },
                         },
@@ -140,16 +158,18 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
         # ever absent -- the UI shows a missing level rather than a guess.
         level = s.get("level")
 
-        senses.append(Sense(
-            sense_number=i,
-            sense_description=s["sense"],
-            sentence=sentence,
-            hidden_text=hidden_text,
-            hint=hint,
-            cloze_sentence=cloze_sentence,
-            translation=s["translation"],
-            level=Level(value=level) if level in VALID_LEVELS else None,
-        ))
+        senses.append(
+            Sense(
+                sense_number=i,
+                sense_description=s["sense"],
+                sentence=sentence,
+                hidden_text=hidden_text,
+                hint=hint,
+                cloze_sentence=cloze_sentence,
+                translation=s["translation"],
+                level=Level(value=level) if level in VALID_LEVELS else None,
+            )
+        )
 
     return senses
 
@@ -166,8 +186,8 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
 def build_as_is_prompt(plain_text: str, parts: list[str], target_lang: str) -> str:
     """Construct the translate-only prompt for a single as-is text."""
     prompt = (
-        f'Translate the following {target_lang} text into English. '
-        f'Do not rewrite, correct, expand or shorten it -- translate exactly what is given.\n\n'
+        f"Translate the following {target_lang} text into English. "
+        f"Do not rewrite, correct, expand or shorten it -- translate exactly what is given.\n\n"
         f'Text: "{plain_text}"\n'
     )
     if parts:
@@ -218,7 +238,10 @@ def _align_part_hints(parts: list[str], returned: list[dict]) -> list[str]:
     hints = []
     for i, part in enumerate(parts):
         candidate = returned[i] if i < len(returned) else None
-        if candidate and (candidate.get("source") or "").strip().lower() == part.lower():
+        if (
+            candidate
+            and (candidate.get("source") or "").strip().lower() == part.lower()
+        ):
             hints.append((candidate.get("translation") or "").strip())
         else:
             hints.append(by_source.get(part.lower(), ""))
@@ -245,10 +268,13 @@ def translate_as_is(client: Mistral, entry: WordEntry, target_lang: str) -> list
     )
 
     response = client.chat.complete(
-        model="ministral-14b-latest",
+        model=get_settings().mistral_model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": build_as_is_prompt(plain_text, parts, target_lang)},
+            {
+                "role": "user",
+                "content": build_as_is_prompt(plain_text, parts, target_lang),
+            },
         ],
         response_format={
             "type": "json_schema",
@@ -267,14 +293,16 @@ def translate_as_is(client: Mistral, entry: WordEntry, target_lang: str) -> list
     part_hints = _align_part_hints(parts, returned)
     _, cloze_sentence = render_as_is(raw, part_hints)
 
-    return [Sense(
-        sense_number=1,
-        sense_description="as is",
-        sentence=plain_text,
-        hidden_text=" / ".join(parts),
-        hint=" / ".join(h for h in part_hints if h),
-        cloze_sentence=cloze_sentence,
-        translation=translation,
-        # CEFR levels describe a word sense; an as-is text has none to report.
-        level=None,
-    )]
+    return [
+        Sense(
+            sense_number=1,
+            sense_description="as is",
+            sentence=plain_text,
+            hidden_text=" / ".join(parts),
+            hint=" / ".join(h for h in part_hints if h),
+            cloze_sentence=cloze_sentence,
+            translation=translation,
+            # CEFR levels describe a word sense; an as-is text has none to report.
+            level=None,
+        )
+    ]

@@ -1,19 +1,23 @@
 import base64
-import json
-import os
 
 import requests
 
-ANKICONNECT_URL = os.environ.get("ANKICONNECT_URL", "http://localhost:8765")
+from ankifier.settings import get_settings
 
 
 def _invoke(action: str, params: dict | None = None) -> dict:
     """Send a request to AnkiConnect and return the result."""
+    settings = get_settings()
+
     payload = {"action": action, "version": 6}
     if params:
         payload["params"] = params
 
-    response = requests.post(ANKICONNECT_URL, json=payload)
+    # Without a timeout an Anki that is running but wedged hangs the request
+    # forever, and every card queued behind it with it.
+    response = requests.post(
+        settings.ankiconnect_url, json=payload, timeout=settings.anki_timeout
+    )
     response.raise_for_status()
 
     result = response.json()
@@ -32,6 +36,19 @@ def check_connection() -> bool:
         return False
 
 
+def get_version() -> int | None:
+    """The AnkiConnect API version, or None when Anki is not reachable."""
+    try:
+        return _invoke("version")
+    except (requests.ConnectionError, requests.Timeout):
+        return None
+
+
+def deck_names() -> list[str]:
+    """Every deck in the collection."""
+    return _invoke("deckNames") or []
+
+
 def ensure_deck(deck_name: str) -> None:
     """Create a deck if it doesn't already exist (idempotent)."""
     _invoke("createDeck", {"deck": deck_name})
@@ -39,13 +56,16 @@ def ensure_deck(deck_name: str) -> None:
 
 def store_media_file(filename: str, path: str) -> None:
     """Store an audio file in Anki's media folder via AnkiConnect."""
-    with open(path, 'rb') as f:
-        data = base64.b64encode(f.read()).decode('utf-8')
+    with open(path, "rb") as f:
+        data = base64.b64encode(f.read()).decode("utf-8")
 
-    _invoke("storeMediaFile", {
-        "filename": filename,
-        "data": data,
-    })
+    _invoke(
+        "storeMediaFile",
+        {
+            "filename": filename,
+            "data": data,
+        },
+    )
 
 
 def add_cloze_note(
