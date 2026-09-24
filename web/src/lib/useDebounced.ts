@@ -9,13 +9,13 @@ import { useEffect, useState } from 'react'
  * having to read a ref during render.
  */
 export function useDebounced<T>(value: T, ms: number): T {
-  const [settled, setSettled] = useState(value)
-  const serialized = JSON.stringify(value)
+	const [settled, setSettled] = useState(value)
+	const serialized = JSON.stringify(value)
 
-  useEffect(() => {
-    const timer = setTimeout(() => setSettled(JSON.parse(serialized) as T), ms)
-    return () => clearTimeout(timer)
-  }, [serialized, ms])
+	useEffect(() => {
+		const timer = setTimeout(() => setSettled(JSON.parse(serialized) as T), ms)
+		return () => clearTimeout(timer)
+	}, [serialized, ms])
 
-  return settled
+	return settled
 }

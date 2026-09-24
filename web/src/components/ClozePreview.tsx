@@ -10,25 +10,25 @@ const CLOZE_RE = /\{\{c(\d+)::(.*?)(?:::(.*?))?\}\}/g
  * reason /api/cloze/preview exists.
  */
 export function ClozePreview({ cloze }: { cloze: string }) {
-  if (!cloze) return <span className="muted">—</span>
+	if (!cloze) return <span className="muted">—</span>
 
-  const parts: ReactNode[] = []
-  let last = 0
+	const parts: ReactNode[] = []
+	let last = 0
 
-  for (const m of cloze.matchAll(CLOZE_RE)) {
-    const start = m.index
-    if (start > last) parts.push(cloze.slice(last, start))
-    const [, n, text, hint] = m
-    parts.push(
-      <span className="cz" key={`${start}-${n}`}>
-        [{text}
-        {hint ? `: ${hint}` : ''}]
-      </span>,
-    )
-    last = start + m[0].length
-  }
+	for (const m of cloze.matchAll(CLOZE_RE)) {
+		const start = m.index
+		if (start > last) parts.push(cloze.slice(last, start))
+		const [, n, text, hint] = m
+		parts.push(
+			<span className="cz" key={`${start}-${n}`}>
+				[{text}
+				{hint ? `: ${hint}` : ''}]
+			</span>,
+		)
+		last = start + m[0].length
+	}
 
-  if (last < cloze.length) parts.push(cloze.slice(last))
+	if (last < cloze.length) parts.push(cloze.slice(last))
 
-  return <span className="preview">{parts}</span>
+	return <span className="preview">{parts}</span>
 }

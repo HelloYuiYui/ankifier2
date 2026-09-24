@@ -30,6 +30,14 @@ ruff = "^0.16.8"
 # both sides of the repo.
 line-length = 88
 src = ["src", "tests"]
+# A tab counts as four columns when measuring against `line-length`, matching
+# how the editors are configured in .editorconfig.
+indent-width = 4
+
+[tool.ruff.format]
+# Tabs, as everywhere else in the repo. Ruff still indents continuation lines
+# and aligns wrapped arguments itself, so only the leading indent changes.
+indent-style = "tab"
 
 [tool.ruff.lint]
 select = [
@@ -45,6 +53,10 @@ ignore = [
     # is long string literals -- here, the Mistral prompts, whose whitespace is
     # part of the text sent to the model and must not be rewrapped.
     "E501",
+    # Fires on the space-aligned `Args:` blocks inside docstrings, which sit in
+    # tab-indented functions. Docstring bodies are prose -- `ruff format` leaves
+    # their alignment alone by design, so the mix is expected, not a defect.
+    "E101",
 ]
 
 [tool.ruff.lint.flake8-bugbear]
