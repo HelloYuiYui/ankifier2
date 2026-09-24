@@ -258,7 +258,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
                 cloze_text=card.cloze_sentence,
                 back_extra=card.translation,
                 audio_filename=filename if audio_ok else None,
-                tags=settings.tags_for(card.kind),
+                tags=[*settings.tags_for(card.kind), (str(card.level) if card.level else "unknown-level")],
             )
         else:
             # Nothing to hide -- an as-is text with no [[...]] markers. Anki
@@ -268,7 +268,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
                 front=card.sentence,
                 back=card.translation,
                 audio_filename=filename if audio_ok else None,
-                tags=settings.tags_for(card.kind),
+                tags=[*settings.tags_for(card.kind), (str(card.level) if card.level else "unknown-level")],
             )
     except RuntimeError as e:
         if "duplicate" in str(e).lower():
