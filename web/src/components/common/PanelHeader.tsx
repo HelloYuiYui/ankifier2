@@ -5,14 +5,14 @@ export default function PanelHeader(props: PanelProps): React.ReactNode {
 	return (
 		<>
 			<h2>{title}</h2>
-			{description instanceof String ? (
+			{typeof description === 'string' ? (
 				<p
 					className="small muted"
 					style={{ marginTop: 0 }}
 					dangerouslySetInnerHTML={{ __html: description }}
 				/>
 			) : (
-				{ description }
+				description
 			)}
 		</>
 	)
