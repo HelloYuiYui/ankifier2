@@ -14,33 +14,33 @@ VALID_LEVELS = frozenset(get_args(CEFRLevel))
 
 @dataclass
 class WordEntry:
-    """Parsed from one line of the CSV."""
+	"""Parsed from one line of the CSV."""
 
-    raw: str
-    word: str
-    article: str | None = None
-    function: str | None = None
-    # "as is": the raw text is the card itself. No sense generation happens --
-    # the model only translates, and any -...- markers become the clozes.
-    as_is: bool = False
+	raw: str
+	word: str
+	article: str | None = None
+	function: str | None = None
+	# "as is": the raw text is the card itself. No sense generation happens --
+	# the model only translates, and any -...- markers become the clozes.
+	as_is: bool = False
 
 
 @dataclass
 class Level:
-    value: CEFRLevel
+	value: CEFRLevel
 
 
 @dataclass
 class Sense:
-    """One sense of a word, as returned by Mistral."""
+	"""One sense of a word, as returned by Mistral."""
 
-    sense_number: int
-    sense_description: str
-    sentence: str
-    hidden_text: str
-    hint: str
-    cloze_sentence: str
-    translation: str
-    # Optional: the model does not always return a level, and it is for
-    # reference only (not used on the Anki card), so absent beats invented.
-    level: Level | None = None
+	sense_number: int
+	sense_description: str
+	sentence: str
+	hidden_text: str
+	hint: str
+	cloze_sentence: str
+	translation: str
+	# Optional: the model does not always return a level, and it is for
+	# reference only (not used on the Anki card), so absent beats invented.
+	level: Level | None = None

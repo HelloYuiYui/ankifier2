@@ -1,9 +1,9 @@
 import type { Status } from '../api/types'
 
 const LABEL: Record<Status['state'], string> = {
-  ok: 'OK',
-  skipped: 'Skipped',
-  error: 'Failed',
+	ok: 'OK',
+	skipped: 'Skipped',
+	error: 'Failed',
 }
 
 /**
@@ -12,14 +12,14 @@ const LABEL: Record<Status['state'], string> = {
  * error strings to decide which badge to draw.
  */
 export function StatusBadge({ status, okLabel }: { status: Status; okLabel?: string }) {
-  const label =
-    status.state === 'ok'
-      ? (okLabel ?? LABEL.ok)
-      : (status.detail ?? LABEL[status.state])
+	const label =
+		status.state === 'ok'
+			? (okLabel ?? LABEL.ok)
+			: (status.detail ?? LABEL[status.state])
 
-  return (
-    <span className={`badge ${status.state}`} title={status.detail ?? undefined}>
-      {label}
-    </span>
-  )
+	return (
+		<span className={`badge ${status.state}`} title={status.detail ?? undefined}>
+			{label}
+		</span>
+	)
 }

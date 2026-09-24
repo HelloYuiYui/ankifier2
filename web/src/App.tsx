@@ -9,20 +9,20 @@ import Title from './components/Title'
 import Navbar from './components/NavBar'
 
 export function App() {
-  return (
-    <>
-      <Title />
-      <Navbar />
+	return (
+		<>
+			<Title />
+			<Navbar />
 
-      <HealthBanner />
+			<HealthBanner />
 
-      <Routes>
-        <Route path="/" element={<GenerateInput />} />
-        <Route path="/manual" element={<ManualInput />} />
-        <Route path="/review" element={<Review />} />
-        <Route path="/results" element={<Results />} />
-        <Route path="*" element={<GenerateInput />} />
-      </Routes>
-    </>
-  )
+			<Routes>
+				<Route path="/" element={<GenerateInput />} />
+				<Route path="/manual" element={<ManualInput />} />
+				<Route path="/review" element={<Review />} />
+				<Route path="/results" element={<Results />} />
+				<Route path="*" element={<GenerateInput />} />
+			</Routes>
+		</>
+	)
 }
