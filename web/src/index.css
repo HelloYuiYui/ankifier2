@@ -180,6 +180,32 @@ textarea {
   min-height: 38px;
 }
 
+/* --- click-to-edit cells -------------------------------------------------
+   The resting state of an editable table cell: a button that looks like the
+   text it holds, so the review table reads as a table rather than as a form.
+   Sits here, above .mono, so a cell that opts into the monospace font still
+   gets it -- `font: inherit` below would otherwise win on source order. */
+button.cell {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  /* Wraps like the textarea it replaces, and keeps any line breaks. */
+  white-space: pre-wrap;
+  word-break: break-word;
+  cursor: text;
+}
+
+button.cell:hover {
+  background: var(--panel);
+}
+
 label.check {
   display: inline-flex;
   align-items: center;

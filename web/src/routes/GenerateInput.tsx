@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import { ApiError, api } from '../api/client'
 import type { GenerateRow, GenerateRowInput } from '../api/types'
 import { emptyGenerateRow, useBatch } from '../store/batch'
+import PanelHeader from '../components/common/PanelHeader'
+import PANEL_CONSTANTS from '../components/common/panelConstants'
 
 export function GenerateInput() {
   const navigate = useNavigate()
@@ -76,12 +78,7 @@ export function GenerateInput() {
 
   return (
     <div className="panel">
-      <h2>Words to generate</h2>
-      <p className="small muted" style={{ marginTop: 0 }}>
-        One word or phrase per row. Tick <strong>As is</strong> to keep the text exactly
-        as typed — it is only translated, and any <code>[[…]]</code> you mark becomes
-        the cloze deletion.
-      </p>
+      <PanelHeader title={PANEL_CONSTANTS.generateTitle} description={PANEL_CONSTANTS.generateDescription} />
 
       <div className="scroll">
         <table>

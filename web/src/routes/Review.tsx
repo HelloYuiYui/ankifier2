@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { ApiError, api } from '../api/client'
 import { ClozePreview } from '../components/ClozePreview'
+import { EditableCell } from '../components/EditableCell'
 import type { CardDraft } from '../api/types'
 import { keptDrafts, useBatch } from '../store/batch'
 
@@ -64,10 +65,8 @@ export function Review() {
     )
   }
 
-  const edit =
-    (id: string, field: keyof CardDraft) =>
-    (e: React.ChangeEvent<HTMLTextAreaElement>) =>
-      updateDraft(id, { [field]: e.target.value })
+  const edit = (id: string, field: keyof CardDraft) => (next: string) =>
+    updateDraft(id, { [field]: next })
 
   return (
     <div className="panel">
@@ -75,8 +74,9 @@ export function Review() {
         Review — {kept.length} of {drafts.length} selected
       </h2>
       <p className="small muted" style={{ marginTop: 0 }}>
-        The spoken text, card front and back are editable. Editing the spoken text gives
-        the card its own audio file — it never overwrites a card you have already made.
+        Click the spoken text, card front or back to edit it. Editing the spoken text
+        gives the card its own audio file — it never overwrites a card you have already
+        made.
       </p>
 
       {errors.length > 0 && (
@@ -126,15 +126,15 @@ export function Review() {
                   <td className="small muted">{d.senseDescription || '—'}</td>
                 )}
                 <td>
-                  <textarea
-                    rows={2}
+                  <EditableCell
+                    label="Spoken text"
                     value={d.sentence}
                     onChange={edit(d.id, 'sentence')}
                   />
                 </td>
                 <td>
-                  <textarea
-                    rows={2}
+                  <EditableCell
+                    label="Card front"
                     className="mono"
                     value={d.clozeSentence}
                     onChange={edit(d.id, 'clozeSentence')}
@@ -142,8 +142,8 @@ export function Review() {
                   <ClozePreview cloze={d.clozeSentence} />
                 </td>
                 <td>
-                  <textarea
-                    rows={2}
+                  <EditableCell
+                    label="Back"
                     value={d.translation}
                     onChange={edit(d.id, 'translation')}
                   />

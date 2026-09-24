@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     # --- decks and tags ----------------------------------------------------
     anki_deck: str = "French::Vocabulary"
     anki_asis_deck: str = "French::Grammar"
-    anki_manual_deck: str = "French::Manual"
+    anki_manual_deck: str = "French::Vocabulary"
     # Comma-separated. Kept a plain string because pydantic-settings parses a
     # list-typed field as JSON, which would reject the ANKI_TAGS=a,b form.
     anki_tags: str = "ankifier"
