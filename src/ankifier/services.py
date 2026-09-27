@@ -173,6 +173,7 @@ def generate_batch(
 					translation=sense.translation,
 					level=sense.level.value if sense.level else None,
 					gender=sense.gender,
+					part_of_speech=sense.part_of_speech,
 				)
 			)
 
@@ -247,8 +248,11 @@ def preflight(
 
 
 def note_tags(card: CardDraft, settings: Settings) -> list[str]:
-	"""The kind's tags, the CEFR level, and -- for a noun -- its gender."""
+	"""The kind's tags, the CEFR level, the part of speech, and a noun's gender."""
 	tags = [*settings.tags_for(card.kind), card.level or "unknown-level"]
+	# Likewise no "unknown-pos": a function word has none, which is not unknown.
+	if card.part_of_speech:
+		tags.append(card.part_of_speech)
 	# No "unknown-gender" counterpart: most cards are not nouns, and tagging
 	# every verb with it would bury the tag that means something.
 	if card.gender:

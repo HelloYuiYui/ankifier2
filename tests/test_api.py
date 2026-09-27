@@ -145,6 +145,7 @@ def test_generate_returns_cards_and_errors(client, monkeypatch):
 	assert body["cards"][0]["sourceId"] == "a"
 	assert body["cards"][0]["clozeSentence"] == "Je {{c1::mange}}"
 	assert body["cards"][0]["gender"] is None
+	assert body["cards"][0]["partOfSpeech"] is None
 
 
 def test_generate_with_no_rows_is_an_empty_result_not_an_error(client):

@@ -6,7 +6,15 @@ from ankifier.cloze import (
 	extract_marked_parts,
 	render_as_is,
 )
-from ankifier.models import VALID_GENDERS, VALID_LEVELS, Level, Sense, WordEntry
+from ankifier.models import (
+	VALID_GENDERS,
+	VALID_LEVELS,
+	VALID_PARTS_OF_SPEECH,
+	Level,
+	PartOfSpeech,
+	Sense,
+	WordEntry,
+)
 from ankifier.settings import get_settings
 
 
@@ -66,6 +74,28 @@ def build_prompt(
 	)
 
 
+# What people actually type in "promener (verb)", in English or French.
+_FUNCTION_ALIASES: dict[str, PartOfSpeech] = {
+	"n": "noun",
+	"noun": "noun",
+	"nom": "noun",
+	"v": "verb",
+	"verb": "verb",
+	"verbe": "verb",
+	"adj": "adjective",
+	"adjective": "adjective",
+	"adjectif": "adjective",
+	"adv": "adverb",
+	"adverb": "adverb",
+	"adverbe": "adverb",
+}
+
+
+def part_of_speech_from_function(function: str | None) -> PartOfSpeech | None:
+	"""The user's own "(verb)" annotation, if it names one of the four classes."""
+	return _FUNCTION_ALIASES.get((function or "").strip().lower())
+
+
 def clean_sense(s: dict) -> dict:
 	"""Strip markdown emphasis from a raw sense dict's string fields.
 
@@ -123,9 +153,10 @@ def query_senses(
             5. 'translation': The full English translation of the sentence. \
             6. 'level': The estimated CEFR level of the word for this sense (one of: A1, A2, B1, B2, C1, C2). \
             7. 'gender': If the word is a noun, its grammatical gender in this sense ('masculine' or 'feminine'). For any other kind of word, 'none'. \
+            8. 'part_of_speech': The part of speech of the word in this sense and sentence ('noun', 'verb', 'adjective' or 'adverb'). For any other kind of word (pronoun, article, preposition, conjunction, etc.), 'other'. \
 \
             Respond ONLY with valid JSON in this exact format: \
-            /{/{'senses': [/{/{'sense': '...', 'sentence': '...', 'hidden_text': '...', 'hint': '...', 'translation': '...', 'level': '...', 'gender': '...'/}/}, ...]/}/} \
+            /{/{'senses': [/{/{'sense': '...', 'sentence': '...', 'hidden_text': '...', 'hint': '...', 'translation': '...', 'level': '...', 'gender': '...', 'part_of_speech': '...'/}/}, ...]/}/} \
         "
 	)
 	user_prompt = build_prompt(
@@ -165,6 +196,16 @@ def query_senses(
 										"type": "string",
 										"enum": ["masculine", "feminine", "none"],
 									},
+									"part_of_speech": {
+										"type": "string",
+										"enum": [
+											"noun",
+											"verb",
+											"adjective",
+											"adverb",
+											"other",
+										],
+									},
 								},
 								"required": [
 									"sense",
@@ -174,6 +215,7 @@ def query_senses(
 									"translation",
 									"level",
 									"gender",
+									"part_of_speech",
 								],
 								"additionalProperties": False,
 							},
@@ -193,6 +235,9 @@ def query_senses(
 	# Sliced rather than trusted: the prompt asks for at most max_senses, but
 	# nothing in strict json_schema mode enforces an array length, and a caller
 	# that asked for one card must get one.
+	# A part of speech the user wrote down beats the model's. It is the only
+	# source here that cannot be wrong about which word class they meant.
+	user_pos = part_of_speech_from_function(entry.function)
 	senses = []
 	for i, s in enumerate(data.get("senses", [])[:max_senses], start=1):
 		s = clean_sense(s)
@@ -204,6 +249,13 @@ def query_senses(
 		# ever absent -- the UI shows a missing level rather than a guess.
 		level = s.get("level")
 		gender = s.get("gender")
+		pos = s.get("part_of_speech")
+		# "other" (a function word) and anything unexpected both become None.
+		part_of_speech = user_pos or (pos if pos in VALID_PARTS_OF_SPEECH else None)
+		# The two fields come from one answer but can still disagree. A verb
+		# tagged "feminine" is the worse error, so only a noun keeps a gender.
+		if part_of_speech != "noun":
+			gender = None
 
 		senses.append(
 			Sense(
@@ -217,6 +269,7 @@ def query_senses(
 				level=Level(value=level) if level in VALID_LEVELS else None,
 				# "none" (not a noun) and anything unexpected both become None.
 				gender=gender if gender in VALID_GENDERS else None,
+				part_of_speech=part_of_speech,
 			)
 		)
 

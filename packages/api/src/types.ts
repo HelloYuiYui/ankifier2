@@ -15,6 +15,8 @@ export type State = 'ok' | 'skipped' | 'error'
 export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 /** Nouns only; null for every other word, and for as-is and manual cards. */
 export type Gender = 'masculine' | 'feminine'
+/** The four open word classes; null for function words, and for as-is and manual cards. */
+export type PartOfSpeech = 'noun' | 'verb' | 'adjective' | 'adverb'
 /**
  * Which text ElevenLabs reads. It does not move the sound tag -- that is on the
  * note's back field either way, so audio only plays once the card is turned.
@@ -60,6 +62,8 @@ export interface CardDraft {
 	 * localStorage before it existed have no such key.
 	 */
 	gender?: Gender | null
+	/** Also tagged. Optional for the same localStorage reason as `gender`. */
+	partOfSpeech?: PartOfSpeech | null
 
 	/** Read the front (`sentence`) or the back (`translation`) aloud. */
 	audioSide: AudioSide

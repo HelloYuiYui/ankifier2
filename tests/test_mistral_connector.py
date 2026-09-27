@@ -12,8 +12,8 @@ from ankifier.mistral_connector import build_prompt, query_senses
 from ankifier.models import WordEntry
 
 
-def entry(raw="glace"):
-	return WordEntry(raw=raw, word=raw)
+def entry(raw="glace", function=None):
+	return WordEntry(raw=raw, word=raw, function=function)
 
 
 class FakeClient:
@@ -28,7 +28,7 @@ class FakeClient:
 		return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
-def raw_sense(n, gender="feminine"):
+def raw_sense(n, gender="feminine", part_of_speech="noun"):
 	return {
 		"sense": f"sense {n}",
 		"sentence": "La glace fond.",
@@ -37,6 +37,7 @@ def raw_sense(n, gender="feminine"):
 		"translation": "The ice melts.",
 		"level": "A2",
 		"gender": gender,
+		"part_of_speech": part_of_speech,
 	}
 
 
@@ -82,6 +83,41 @@ def test_a_non_noun_or_unexpected_gender_is_none():
 	"""The schema says "none" for a non-noun; anything else is not trusted."""
 	client = FakeClient([raw_sense(1, "none"), raw_sense(2, "neuter")])
 	assert [s.gender for s in query_senses(client, entry(), "French")] == [None, None]
+
+
+def test_query_senses_reads_the_part_of_speech():
+	client = FakeClient([raw_sense(1), raw_sense(2, "none", "adverb")])
+	senses = query_senses(client, entry(), "French")
+	assert [s.part_of_speech for s in senses] == ["noun", "adverb"]
+
+
+def test_a_function_word_or_unexpected_part_of_speech_is_none():
+	""" "other" means a pronoun, article and so on: no part of speech, no tag."""
+	client = FakeClient(
+		[raw_sense(1, "none", "other"), raw_sense(2, "none", "interjection")]
+	)
+	senses = query_senses(client, entry(), "French")
+	assert [s.part_of_speech for s in senses] == [None, None]
+
+
+def test_only_a_noun_keeps_its_gender():
+	"""A verb the model also called feminine must not be tagged feminine."""
+	client = FakeClient([raw_sense(1, "feminine", "verb")])
+	sense = query_senses(client, entry(), "French")[0]
+	assert (sense.part_of_speech, sense.gender) == ("verb", None)
+
+
+def test_the_users_annotation_overrides_the_models_part_of_speech():
+	"""'devoir (verb)': the user said verb, whatever the model thinks."""
+	client = FakeClient([raw_sense(1, "masculine", "noun")])
+	sense = query_senses(client, entry("devoir", function="Verbe"), "French")[0]
+	assert (sense.part_of_speech, sense.gender) == ("verb", None)
+
+
+def test_an_annotation_that_is_no_part_of_speech_is_ignored():
+	client = FakeClient([raw_sense(1)])
+	sense = query_senses(client, entry("glace", function="food"), "French")[0]
+	assert sense.part_of_speech == "noun"
 
 
 def test_query_senses_sends_the_context_to_the_model():

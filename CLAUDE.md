@@ -93,7 +93,9 @@ Empty hint -> no `::`. Stray `[[`/`]]` are stripped. All of this lives in `cloze
 `generated` -> `ANKI_DECK` (French::Vocabulary); `as_is` -> `ANKI_ASIS_DECK`
 (French::Grammar); `manual` -> `ANKI_MANUAL_DECK`, or vocab/grammar via
 `deck_target`. Tags (`services.note_tags`): `ANKI_TAGS` + `as-is`/`manual` + the CEFR level
-(or `unknown-level`) + `masculine`/`feminine` for nouns. There is no tag when a card has no gender.
+(or `unknown-level`) + `noun`/`verb`/`adjective`/`adverb` + `masculine`/`feminine` for nouns.
+Function words get no part-of-speech tag and non-nouns no gender tag (no `unknown-*`). A
+`(verb)`-style annotation in the input overrides Mistral's part of speech; only a noun keeps a gender.
 
 ## Commands
 

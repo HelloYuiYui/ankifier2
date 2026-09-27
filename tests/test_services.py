@@ -298,12 +298,13 @@ def test_generate_batch_carries_the_gender_onto_the_card(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang, **kw: [sense(gender="feminine")],
+		lambda c, e, lang, **kw: [sense(gender="feminine", part_of_speech="noun")],
 	)
 	cards, _ = services.generate_batch(
 		[GenerateRow(source_id="a", text="glace")], settings
 	)
 	assert cards[0].gender == "feminine"
+	assert cards[0].part_of_speech == "noun"
 
 
 # ---------------------------------------------------------------------------
@@ -361,6 +362,19 @@ def test_a_noun_is_tagged_with_its_level_and_gender(settings, anki, tts):
 	services.add_one(draft(level="A2", gender="feminine"), settings)
 	tags = anki.notes[0]["tags"]
 	assert "A2" in tags and "feminine" in tags
+
+
+def test_a_card_is_tagged_with_its_part_of_speech(settings, anki, tts):
+	services.add_one(draft(part_of_speech="noun", gender="feminine"), settings)
+	tags = anki.notes[0]["tags"]
+	assert "noun" in tags and "feminine" in tags
+
+
+def test_a_function_word_gets_no_part_of_speech_tag(settings, anki, tts):
+	services.add_one(draft(part_of_speech=None), settings)
+	tags = set(anki.notes[0]["tags"])
+	assert not {"noun", "verb", "adjective", "adverb"} & tags
+	assert not any("pos" in t or "unknown-part" in t for t in tags)
 
 
 def test_a_card_with_no_gender_gets_no_gender_tag(settings, anki, tts):
