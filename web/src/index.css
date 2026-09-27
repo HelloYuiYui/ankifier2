@@ -206,6 +206,25 @@ button.cell:hover {
 	background: var(--panel);
 }
 
+/* A pair of mutually exclusive buttons, styled like the nav tabs. */
+.segmented {
+	display: inline-flex;
+	gap: 4px;
+	margin-bottom: 14px;
+}
+
+.segmented button {
+	padding: 6px 13px;
+	font-size: 0.88rem;
+	color: var(--muted);
+}
+
+.segmented button.active {
+	background: var(--accent-soft);
+	border-color: var(--accent);
+	color: var(--accent);
+}
+
 label.check {
 	display: inline-flex;
 	align-items: center;

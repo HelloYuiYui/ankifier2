@@ -45,6 +45,31 @@ def test_deck_for_honours_overrides():
 	)
 
 
+@pytest.mark.parametrize(
+	"target,expected",
+	[
+		("vocabulary", "French::Vocabulary"),
+		("grammar", "French::Grammar"),
+		(None, "French::Vocabulary"),
+	],
+)
+def test_deck_for_manual_honours_the_target(target, expected):
+	assert settings().deck_for("manual", target) == expected
+
+
+def test_deck_for_manual_target_follows_the_configured_decks():
+	s = settings(anki_deck="A", anki_asis_deck="B", anki_manual_deck="C")
+	assert (s.deck_for("manual", "vocabulary"), s.deck_for("manual", "grammar")) == (
+		"A",
+		"B",
+	)
+
+
+def test_deck_for_ignores_the_target_for_other_kinds():
+	assert settings().deck_for("generated", "grammar") == "French::Vocabulary"
+	assert settings().deck_for("as_is", "vocabulary") == "French::Grammar"
+
+
 def test_deck_for_unknown_kind_falls_back_to_the_vocabulary_deck():
 	assert settings().deck_for("something-else") == "French::Vocabulary"
 

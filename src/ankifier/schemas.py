@@ -24,6 +24,11 @@ Kind = Literal["generated", "as_is", "manual"]
 # dry_run was set.
 State = Literal["ok", "skipped", "error"]
 
+# Which configured deck a manual card goes to. A name for a deck the server
+# already knows, never a deck name itself, so the client still cannot create a
+# stray deck.
+DeckTarget = Literal["vocabulary", "grammar"]
+
 
 class Base(BaseModel):
 	model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -40,7 +45,7 @@ class CardDraft(Base):
 	request body of /api/cards/add.
 
 	Note what is NOT here: deck, tags and audio filename. Those are derived
-	server-side from `kind` and from the text, so a client cannot create a stray
+	server-side from `kind`, `deck_target` and the text, so a client cannot create a stray
 	deck and cannot make two cards collide on one audio file.
 	"""
 
@@ -75,6 +80,10 @@ class CardDraft(Base):
 	# Names the audio file when the spoken text is unwieldy (an as-is card's
 	# "word" is a whole sentence). Cosmetic; the file's identity is its content.
 	audio_stem: str | None = None
+
+	# Manual cards only; ignored for every other kind. None means the
+	# configured manual deck.
+	deck_target: DeckTarget | None = None
 
 
 class Status(Base):

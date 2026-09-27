@@ -9,6 +9,8 @@
 
 export type Kind = 'generated' | 'as_is' | 'manual'
 export type State = 'ok' | 'skipped' | 'error'
+/** Which configured deck a manual card goes to. Never a raw deck name. */
+export type DeckTarget = 'vocabulary' | 'grammar'
 export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
 
 /**
@@ -19,7 +21,7 @@ export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
  * /api/cards/add accepts.
  *
  * Deck, tags and audio filename are deliberately absent: the server derives
- * them from `kind` and from the text.
+ * them from `kind`, `deckTarget` and the text.
  */
 export interface CardDraft {
 	/** `${sourceId}#${n}`. Stable across regenerating a single input row. */
@@ -48,6 +50,9 @@ export interface CardDraft {
 
 	/** Names the audio file when the spoken text is unwieldy. Cosmetic. */
 	audioStem: string | null
+
+	/** Manual cards only; ignored otherwise. Absent means the manual deck. */
+	deckTarget?: DeckTarget | null
 }
 
 export interface Status {

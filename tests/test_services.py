@@ -298,6 +298,13 @@ def test_each_kind_lands_in_its_own_deck_with_its_marker_tag(
 		assert tag in anki.notes[0]["tags"]
 
 
+def test_a_manual_card_can_target_the_grammar_deck(settings, anki, tts):
+	result = services.add_one(draft(kind="manual", deck_target="grammar"), settings)
+	assert result.deck == "French::Grammar"
+	assert anki.notes[0]["deck_name"] == "French::Grammar"
+	assert "manual" in anki.notes[0]["tags"]
+
+
 def test_a_cloze_sentence_becomes_a_cloze_note(settings, anki, tts):
 	services.add_one(draft(cloze_sentence="Je {{c1::mange}} ici"), settings)
 	assert anki.notes[0]["type"] == "Cloze"

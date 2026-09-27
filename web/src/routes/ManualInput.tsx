@@ -3,9 +3,20 @@ import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
 import { ClozePreview } from '../components/ClozePreview'
-import type { CardDraft, ClozeResult, ManualRowInput } from '../api/types'
+import type {
+	CardDraft,
+	ClozeResult,
+	DeckTarget,
+	HealthResponse,
+	ManualRowInput,
+} from '../api/types'
 import { emptyManualRow, useBatch } from '../store/batch'
 import { useDebounced } from '../lib/useDebounced'
+
+const DECK_OPTIONS: { value: DeckTarget; label: string }[] = [
+	{ value: 'vocabulary', label: 'Vocabulary' },
+	{ value: 'grammar', label: 'Grammar' },
+]
 
 /**
  * The manual flow, in one screen.
@@ -20,6 +31,18 @@ export function ManualInput() {
 	const rows = useBatch((s) => s.manualRows)
 	const setRows = useBatch((s) => s.setManualRows)
 	const setDrafts = useBatch((s) => s.setDrafts)
+	const deck = useBatch((s) => s.manualDeck)
+	const setDeck = useBatch((s) => s.setManualDeck)
+
+	// Only for showing the real deck names on the toggle.
+	const [decks, setDecks] = useState<HealthResponse['decks'] | null>(null)
+	useEffect(() => {
+		api.health()
+			.then((h) => setDecks(h.decks))
+			.catch(() => {
+				/* the labels fall back to plain names */
+			})
+	}, [])
 
 	const [previews, setPreviews] = useState<Record<string, ClozeResult>>({})
 	const [error, setError] = useState<string | null>(null)
@@ -104,6 +127,7 @@ export function ManualInput() {
 				// Named after the spoken text, so the filename never carries marker
 				// punctuation.
 				audioStem: plain,
+				deckTarget: deck,
 			}
 		})
 
@@ -118,6 +142,21 @@ export function ManualInput() {
 				Nothing here touches the AI. Mark what to hide as <code>[[word]]</code>,
 				or <code>[[word:hint]]</code> to show a hint on the card.
 			</p>
+
+			<div className="segmented" role="radiogroup" aria-label="Deck">
+				{DECK_OPTIONS.map(({ value, label }) => (
+					<button
+						key={value}
+						role="radio"
+						aria-checked={deck === value}
+						className={deck === value ? 'active' : undefined}
+						onClick={() => setDeck(value)}
+					>
+						{(value === 'vocabulary' ? decks?.generated : decks?.asIs) ??
+							label}
+					</button>
+				))}
+			</div>
 
 			<div className="scroll">
 				<table>

@@ -212,7 +212,7 @@ def preflight(
 		raise PreflightError(f"Audio directory is not writable: {e}") from e
 
 	# Only the decks this batch actually needs.
-	for deck in {settings.deck_for(c.kind) for c in cards}:
+	for deck in {settings.deck_for(c.kind, c.deck_target) for c in cards}:
 		ensure_deck(deck)
 
 
@@ -222,7 +222,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 	Per-card and stateless by design. A failed audio is not fatal -- the card is
 	still created, silently, exactly as before.
 	"""
-	deck = settings.deck_for(card.kind)
+	deck = settings.deck_for(card.kind, card.deck_target)
 	filename = audio_filename(card.sentence, card.audio_stem or card.word)
 	path = settings.audio_root / filename
 	note_type = "Cloze" if "{{c" in card.cloze_sentence else "Basic"
