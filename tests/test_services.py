@@ -141,6 +141,21 @@ def test_manual_draft_without_cloze_takes_the_front_literally():
 	assert d.sentence == d.cloze_sentence == "bonjour [[x]]"
 
 
+def test_manual_draft_reads_the_front_unless_told_otherwise():
+	d = services.manual_draft("m1", "Je [[mange]]", "I eat", True)
+	assert d.audio_side == "front"
+
+
+def test_manual_draft_can_be_set_to_read_the_back():
+	d = services.manual_draft("m1", "etre, subjonctif, tu", "que tu sois", True, "back")
+	assert d.audio_side == "back"
+	# No stem: the back has no markers, so the spoken text names its own file.
+	assert d.audio_stem is None
+	# The card itself is untouched -- only which side is spoken changed.
+	assert d.sentence == "etre, subjonctif, tu"
+	assert d.translation == "que tu sois"
+
+
 # ---------------------------------------------------------------------------
 # generate_batch
 # ---------------------------------------------------------------------------
@@ -324,6 +339,53 @@ def test_text_with_no_deletion_becomes_a_basic_note(settings, anki, tts):
 def test_audio_is_generated_from_the_spoken_sentence_not_the_cloze(settings, anki, tts):
 	services.add_one(draft(), settings)
 	assert tts == ["Je mange une pomme"]
+
+
+def test_audio_side_back_reads_the_translation(settings, anki, tts):
+	"""A conjugation prompt must not read its own answer aloud."""
+	card = draft(
+		kind="manual",
+		word="etre, subjonctif, tu",
+		sentence="etre, subjonctif, tu",
+		cloze_sentence="etre, subjonctif, {{c1::tu}}",
+		translation="que tu sois",
+		audio_side="back",
+	)
+	result = services.add_one(card, settings)
+
+	assert tts == ["que tu sois"]
+	assert result.audio.state == "ok"
+	# Still on the note's back field, so it only plays once the card is turned.
+	assert anki.notes[0]["audio_filename"] == anki.media[0]
+	# And named after what it contains, not after the front.
+	assert "que_tu_sois" in anki.media[0]
+
+
+def test_the_two_sides_of_one_card_get_different_audio_files(settings, anki, tts):
+	front = services.add_one(draft(), settings)
+	back = services.add_one(draft(id="a#2", audio_side="back"), settings)
+	assert front.audio_url != back.audio_url
+
+
+def test_an_empty_back_skips_the_audio_instead_of_reading_nothing(settings, anki, tts):
+	result = services.add_one(draft(translation="", audio_side="back"), settings)
+
+	assert tts == []  # never sent an empty string to ElevenLabs
+	assert result.audio.state == "skipped"
+	assert "the back is empty" in result.audio.detail
+	# The card is still made, exactly as it is for a failed audio.
+	assert result.card.state == "ok"
+	assert anki.notes[0]["audio_filename"] is None
+	assert result.audio_url is None
+
+
+def test_a_dry_run_of_an_empty_back_says_so_rather_than_naming_a_file(
+	settings, anki, tts
+):
+	(result,) = services.add_cards(
+		[draft(translation="", audio_side="back")], settings, dry_run=True
+	)
+	assert "the back is empty" in result.audio.detail
 
 
 def test_a_failed_audio_still_creates_the_card(settings, anki, monkeypatch):

@@ -159,6 +159,7 @@ button.icon {
 }
 
 input[type='text'],
+select,
 textarea {
 	font: inherit;
 	width: 100%;
@@ -170,6 +171,7 @@ textarea {
 }
 
 input[type='text']:focus,
+select:focus,
 textarea:focus {
 	outline: 2px solid var(--accent-soft);
 	border-color: var(--accent);
@@ -178,6 +180,13 @@ textarea:focus {
 textarea {
 	resize: vertical;
 	min-height: 38px;
+}
+
+/* Narrow table columns: a select that stretched to 100% would widen the column
+   past the two words it holds. */
+select {
+	width: auto;
+	cursor: pointer;
 }
 
 /* --- click-to-edit cells -------------------------------------------------
