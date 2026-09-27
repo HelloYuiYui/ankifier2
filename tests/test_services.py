@@ -178,7 +178,7 @@ def test_generate_batch_fans_one_row_into_several_cards(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang: [sense(1), sense(2), sense(3)],
+		lambda c, e, lang, **kw: [sense(1), sense(2), sense(3)],
 	)
 	cards, errors = services.generate_batch(
 		[GenerateRow(source_id="a", text="manger")], settings
@@ -194,7 +194,7 @@ def test_generate_batch_keeps_submission_order(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang: [sense()],
+		lambda c, e, lang, **kw: [sense()],
 	)
 	rows = [GenerateRow(source_id=f"r{i}", text=f"w{i}") for i in range(5)]
 	cards, _ = services.generate_batch(rows, settings)
@@ -206,7 +206,7 @@ def test_a_failing_row_becomes_an_error_and_does_not_stop_the_batch(
 ):
 	monkeypatch.setattr(services, "_mistral_client", lambda: object())
 
-	def flaky(client, entry, lang):
+	def flaky(client, entry, lang, **kw):
 		if entry.raw == "bad":
 			raise RuntimeError("model exploded")
 		return [sense()]
@@ -230,7 +230,7 @@ def test_an_empty_sense_list_is_an_error_not_a_blank_card(monkeypatch, settings)
 	"""A blank card used to be addable, which sent an empty note to Anki."""
 	monkeypatch.setattr(services, "_mistral_client", lambda: object())
 	monkeypatch.setattr(
-		services.mistral_connector, "query_senses", lambda c, e, lang: []
+		services.mistral_connector, "query_senses", lambda c, e, lang, **kw: []
 	)
 	cards, errors = services.generate_batch(
 		[GenerateRow(source_id="a", text="manger")], settings
@@ -245,7 +245,7 @@ def test_as_is_rows_use_the_translate_only_path(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang: used.append("query") or [sense()],
+		lambda c, e, lang, **kw: used.append("query") or [sense()],
 	)
 	monkeypatch.setattr(
 		services.mistral_connector,
@@ -260,6 +260,37 @@ def test_as_is_rows_use_the_translate_only_path(monkeypatch, settings):
 		settings,
 	)
 	assert used == ["query", "as_is"]
+
+
+def test_generate_batch_passes_sense_count_and_context_to_the_model(
+	monkeypatch, settings
+):
+	monkeypatch.setattr(services, "_mistral_client", lambda: object())
+	seen = {}
+
+	def query(client, entry, lang, **kw):
+		seen["query"] = kw
+		return [sense()]
+
+	def as_is(client, entry, lang, **kw):
+		seen["as_is"] = kw
+		return [sense()]
+
+	monkeypatch.setattr(services.mistral_connector, "query_senses", query)
+	monkeypatch.setattr(services.mistral_connector, "translate_as_is", as_is)
+	cards, _ = services.generate_batch(
+		[
+			GenerateRow(
+				source_id="a", text="glace", max_senses=1, context="Il se regarde."
+			),
+			GenerateRow(source_id="b", text="Il faut", kind="as_is", max_senses=1),
+		],
+		settings,
+	)
+	assert seen["query"] == {"max_senses": 1, "context": "Il se regarde."}
+	# A translation has no senses to count and no sense to disambiguate.
+	assert seen["as_is"] == {}
+	assert [c.id for c in cards] == ["a#1", "b#1"]
 
 
 # ---------------------------------------------------------------------------

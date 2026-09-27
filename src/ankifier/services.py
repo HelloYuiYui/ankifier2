@@ -124,15 +124,21 @@ def generate_batch(
 	for row in rows:
 		as_is = row.kind == "as_is"
 		entry = parse_line(row.text, as_is=as_is)
-		# "As is" skips sense generation entirely: the text is already the card,
-		# so the model is only asked for its translation.
-		run = (
-			mistral_connector.translate_as_is
-			if as_is
-			else mistral_connector.query_senses
-		)
 		try:
-			senses = run(client, entry, settings.target_lang)
+			if as_is:
+				# "As is" skips sense generation entirely: the text is already the
+				# card, so the model is only asked for its translation.
+				senses = mistral_connector.translate_as_is(
+					client, entry, settings.target_lang
+				)
+			else:
+				senses = mistral_connector.query_senses(
+					client,
+					entry,
+					settings.target_lang,
+					max_senses=row.max_senses,
+					context=row.context,
+				)
 		except Exception as e:
 			errors.append(
 				GenerateError(source_id=row.source_id, text=row.text, message=str(e))
@@ -297,7 +303,10 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				cloze_text=card.cloze_sentence,
 				back_extra=card.translation,
 				audio_filename=filename if audio_ok else None,
-				tags=[*settings.tags_for(card.kind), (str(card.level) if card.level else "unknown-level")],
+				tags=[
+					*settings.tags_for(card.kind),
+					(str(card.level) if card.level else "unknown-level"),
+				],
 			)
 		else:
 			# Nothing to hide -- an as-is text with no [[...]] markers. Anki
@@ -307,7 +316,10 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				front=card.sentence,
 				back=card.translation,
 				audio_filename=filename if audio_ok else None,
-				tags=[*settings.tags_for(card.kind), (str(card.level) if card.level else "unknown-level")],
+				tags=[
+					*settings.tags_for(card.kind),
+					(str(card.level) if card.level else "unknown-level"),
+				],
 			)
 	except RuntimeError as e:
 		if "duplicate" in str(e).lower():

@@ -27,18 +27,25 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # -r: web/, extension/ and packages/api, each with its own config.
       - name: Prettier
-        run: pnpm --filter web format:check
+        run: pnpm -r format:check
 
       - name: ESLint
-        run: pnpm --filter web lint
+        run: pnpm -r lint
 
       - name: Types
-        run: pnpm --filter web typecheck
+        run: pnpm -r typecheck
 
       # The build is the only check that exercises the Vite config itself.
       - name: Build
         run: pnpm --filter web build
+
+      - name: Extension tests
+        run: pnpm --filter extension test
+
+      - name: Extension build
+        run: pnpm --filter extension build
 
   python:
     name: Back-end

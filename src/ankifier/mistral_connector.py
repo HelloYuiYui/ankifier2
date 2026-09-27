@@ -21,8 +21,18 @@ def init_client() -> Mistral:
 	)
 
 
-def build_prompt(entry: WordEntry, target_lang: str) -> str:
-	"""Construct the user prompt for Mistral to generate senses and sentences."""
+def build_prompt(
+	entry: WordEntry,
+	target_lang: str,
+	*,
+	max_senses: int = 3,
+	context: str | None = None,
+) -> str:
+	"""Construct the user prompt for Mistral to generate senses and sentences.
+
+	max_senses=1 is the browser extension: one card, and -- when the page
+	sentence is known -- the sense the word has there, not its most common one.
+	"""
 	word_desc = entry.raw
 	extra_context = ""
 
@@ -30,6 +40,22 @@ def build_prompt(entry: WordEntry, target_lang: str) -> str:
 		extra_context += f" This word is a {entry.function}."
 	if entry.article:
 		extra_context += f" It is commonly used with the article(s): {entry.article}."
+
+	if max_senses == 1:
+		if context:
+			which = (
+				f' It appears in this sentence: "{context}". Provide exactly ONE '
+				"sense: the meaning the word has in that sentence."
+			)
+		else:
+			which = " Provide exactly ONE sense: its most common meaning."
+		# The page sentence only picks the sense. Copying it would put a long,
+		# hard article sentence on the card instead of a simple one.
+		return (
+			f'Given the {target_lang} word "{word_desc}",{extra_context}{which} '
+			"Write a NEW simple example sentence for it; do not reuse the sentence "
+			"above. Format should be as below:"
+		)
 
 	return (
 		f'Given the {target_lang} word "{word_desc}",{extra_context} provide UP TO 3 '
@@ -68,7 +94,14 @@ def _build_cloze(sentence: str, hidden_text: str, hint: str) -> str:
 	return f"{{{{c1::{hidden_text}::{hint}}}}} - {sentence}"
 
 
-def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Sense]:
+def query_senses(
+	client: Mistral,
+	entry: WordEntry,
+	target_lang: str,
+	*,
+	max_senses: int = 3,
+	context: str | None = None,
+) -> list[Sense]:
 	"""Query Mistral for senses and example sentences, returning Sense objects."""
 	system_prompt = (
 		f"You are a {target_lang} language learning assistant. "
@@ -94,7 +127,9 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
             /{/{'senses': [/{/{'sense': '...', 'sentence': '...', 'hidden_text': '...', 'hint': '...', 'translation': '...', 'level': '...'/}/}, ...]/}/} \
         "
 	)
-	user_prompt = build_prompt(entry, target_lang)
+	user_prompt = build_prompt(
+		entry, target_lang, max_senses=max_senses, context=context
+	)
 
 	response = client.chat.complete(
 		model=get_settings().mistral_model,
@@ -147,8 +182,11 @@ def query_senses(client: Mistral, entry: WordEntry, target_lang: str) -> list[Se
 	content = response.choices[0].message.content
 	data = json.loads(content)
 
+	# Sliced rather than trusted: the prompt asks for at most max_senses, but
+	# nothing in strict json_schema mode enforces an array length, and a caller
+	# that asked for one card must get one.
 	senses = []
-	for i, s in enumerate(data.get("senses", []), start=1):
+	for i, s in enumerate(data.get("senses", [])[:max_senses], start=1):
 		s = clean_sense(s)
 		sentence = s["sentence"]
 		hidden_text = s["hidden_text"]

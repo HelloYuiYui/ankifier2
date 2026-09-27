@@ -110,6 +110,11 @@ class GenerateRow(Base):
 	text: str
 	# Only these two: a manual card never reaches the model.
 	kind: Literal["generated", "as_is"] = "generated"
+	# 1 for the browser extension (one card, fast), 3 for the web table.
+	max_senses: int = Field(3, ge=1, le=3)
+	# The page sentence the word was selected from. Mistral uses it to pick the
+	# sense meant there rather than the most common one. Ignored for as_is.
+	context: str | None = Field(None, max_length=1000)
 
 
 class GenerateRequest(Base):

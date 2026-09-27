@@ -1,4 +1,7 @@
-# The front-end lives in web/; this workspace exists so its scripts can be
-# driven from the repo root, e.g. `pnpm --filter web lint`.
+# web/ is the SPA, extension/ the Chrome extension, and packages/api the wire
+# types and client both of them share. Scripts are driven from the repo root,
+# e.g. `pnpm -r lint` or `pnpm --filter extension build`.
 packages:
   - web
+  - extension
+  - packages/*
