@@ -6,7 +6,7 @@ from ankifier.cloze import (
 	extract_marked_parts,
 	render_as_is,
 )
-from ankifier.models import VALID_LEVELS, Level, Sense, WordEntry
+from ankifier.models import VALID_GENDERS, VALID_LEVELS, Level, Sense, WordEntry
 from ankifier.settings import get_settings
 
 
@@ -122,9 +122,10 @@ def query_senses(
             4. 'hint': The English translation that will be shown as a hint. if there is an adjective, include it as well, if not only include the sense. \
             5. 'translation': The full English translation of the sentence. \
             6. 'level': The estimated CEFR level of the word for this sense (one of: A1, A2, B1, B2, C1, C2). \
+            7. 'gender': If the word is a noun, its grammatical gender in this sense ('masculine' or 'feminine'). For any other kind of word, 'none'. \
 \
             Respond ONLY with valid JSON in this exact format: \
-            /{/{'senses': [/{/{'sense': '...', 'sentence': '...', 'hidden_text': '...', 'hint': '...', 'translation': '...', 'level': '...'/}/}, ...]/}/} \
+            /{/{'senses': [/{/{'sense': '...', 'sentence': '...', 'hidden_text': '...', 'hint': '...', 'translation': '...', 'level': '...', 'gender': '...'/}/}, ...]/}/} \
         "
 	)
 	user_prompt = build_prompt(
@@ -158,6 +159,12 @@ def query_senses(
 										"type": "string",
 										"enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
 									},
+									# "none" rather than optional: strict mode makes every
+									# property required.
+									"gender": {
+										"type": "string",
+										"enum": ["masculine", "feminine", "none"],
+									},
 								},
 								"required": [
 									"sense",
@@ -166,6 +173,7 @@ def query_senses(
 									"hint",
 									"translation",
 									"level",
+									"gender",
 								],
 								"additionalProperties": False,
 							},
@@ -195,6 +203,7 @@ def query_senses(
 		# The json_schema makes level required, but don't invent one if it is
 		# ever absent -- the UI shows a missing level rather than a guess.
 		level = s.get("level")
+		gender = s.get("gender")
 
 		senses.append(
 			Sense(
@@ -206,6 +215,8 @@ def query_senses(
 				cloze_sentence=cloze_sentence,
 				translation=s["translation"],
 				level=Level(value=level) if level in VALID_LEVELS else None,
+				# "none" (not a noun) and anything unexpected both become None.
+				gender=gender if gender in VALID_GENDERS else None,
 			)
 		)
 

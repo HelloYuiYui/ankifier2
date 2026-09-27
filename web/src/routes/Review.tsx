@@ -176,6 +176,13 @@ export function Review() {
 								{showSenses && (
 									<td className="small muted">
 										{d.level ?? 'not returned'}
+										{d.gender && (
+											<div>
+												<span className="badge neutral">
+													{d.gender}
+												</span>
+											</div>
+										)}
 									</td>
 								)}
 							</tr>

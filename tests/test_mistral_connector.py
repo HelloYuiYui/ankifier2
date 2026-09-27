@@ -28,7 +28,7 @@ class FakeClient:
 		return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
-def raw_sense(n):
+def raw_sense(n, gender="feminine"):
 	return {
 		"sense": f"sense {n}",
 		"sentence": "La glace fond.",
@@ -36,6 +36,7 @@ def raw_sense(n):
 		"hint": "ice",
 		"translation": "The ice melts.",
 		"level": "A2",
+		"gender": gender,
 	}
 
 
@@ -70,6 +71,17 @@ def test_query_senses_never_returns_more_than_asked_for():
 	client = FakeClient([raw_sense(1), raw_sense(2), raw_sense(3)])
 	senses = query_senses(client, entry(), "French", max_senses=1)
 	assert [s.sense_description for s in senses] == ["sense 1"]
+
+
+def test_query_senses_reads_a_noun_gender():
+	client = FakeClient([raw_sense(1)])
+	assert query_senses(client, entry(), "French")[0].gender == "feminine"
+
+
+def test_a_non_noun_or_unexpected_gender_is_none():
+	"""The schema says "none" for a non-noun; anything else is not trusted."""
+	client = FakeClient([raw_sense(1, "none"), raw_sense(2, "neuter")])
+	assert [s.gender for s in query_senses(client, entry(), "French")] == [None, None]
 
 
 def test_query_senses_sends_the_context_to_the_model():

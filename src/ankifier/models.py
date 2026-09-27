@@ -11,6 +11,10 @@ from typing import Literal, get_args
 CEFRLevel = Literal["A1", "A2", "B1", "B2", "C1", "C2"]
 VALID_LEVELS = frozenset(get_args(CEFRLevel))
 
+# Grammatical gender, for nouns only. Every other word class has none.
+Gender = Literal["masculine", "feminine"]
+VALID_GENDERS = frozenset(get_args(Gender))
+
 
 @dataclass
 class WordEntry:
@@ -44,3 +48,5 @@ class Sense:
 	# Optional: the model does not always return a level, and it is for
 	# reference only (not used on the Anki card), so absent beats invented.
 	level: Level | None = None
+	# Nouns only. None for everything else, and for an as-is text.
+	gender: Gender | None = None

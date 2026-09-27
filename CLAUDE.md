@@ -92,7 +92,8 @@ Empty hint -> no `::`. Stray `[[`/`]]` are stripped. All of this lives in `cloze
 
 `generated` -> `ANKI_DECK` (French::Vocabulary); `as_is` -> `ANKI_ASIS_DECK`
 (French::Grammar); `manual` -> `ANKI_MANUAL_DECK`, or vocab/grammar via
-`deck_target`. Tags: `ANKI_TAGS` + `as-is`/`manual` + the CEFR level (or `unknown-level`).
+`deck_target`. Tags (`services.note_tags`): `ANKI_TAGS` + `as-is`/`manual` + the CEFR level
+(or `unknown-level`) + `masculine`/`feminine` for nouns. There is no tag when a card has no gender.
 
 ## Commands
 

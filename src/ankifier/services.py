@@ -172,6 +172,7 @@ def generate_batch(
 					hint=sense.hint,
 					translation=sense.translation,
 					level=sense.level.value if sense.level else None,
+					gender=sense.gender,
 				)
 			)
 
@@ -245,6 +246,16 @@ def preflight(
 		ensure_deck(deck)
 
 
+def note_tags(card: CardDraft, settings: Settings) -> list[str]:
+	"""The kind's tags, the CEFR level, and -- for a noun -- its gender."""
+	tags = [*settings.tags_for(card.kind), card.level or "unknown-level"]
+	# No "unknown-gender" counterpart: most cards are not nouns, and tagging
+	# every verb with it would bury the tag that means something.
+	if card.gender:
+		tags.append(card.gender)
+	return tags
+
+
 def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:
 	"""Audio, then the note, for one card.
 
@@ -303,10 +314,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				cloze_text=card.cloze_sentence,
 				back_extra=card.translation,
 				audio_filename=filename if audio_ok else None,
-				tags=[
-					*settings.tags_for(card.kind),
-					(str(card.level) if card.level else "unknown-level"),
-				],
+				tags=note_tags(card, settings),
 			)
 		else:
 			# Nothing to hide -- an as-is text with no [[...]] markers. Anki
@@ -316,10 +324,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				front=card.sentence,
 				back=card.translation,
 				audio_filename=filename if audio_ok else None,
-				tags=[
-					*settings.tags_for(card.kind),
-					(str(card.level) if card.level else "unknown-level"),
-				],
+				tags=note_tags(card, settings),
 			)
 	except RuntimeError as e:
 		if "duplicate" in str(e).lower():

@@ -13,6 +13,8 @@
 export type Kind = 'generated' | 'as_is' | 'manual'
 export type State = 'ok' | 'skipped' | 'error'
 export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+/** Nouns only; null for every other word, and for as-is and manual cards. */
+export type Gender = 'masculine' | 'feminine'
 /**
  * Which text ElevenLabs reads. It does not move the sound tag -- that is on the
  * note's back field either way, so audio only plays once the card is turned.
@@ -53,6 +55,11 @@ export interface CardDraft {
 	hiddenText: string
 	hint: string
 	level: CEFRLevel | null
+	/**
+	 * Also tagged on the note, like the level. Optional because drafts saved to
+	 * localStorage before it existed have no such key.
+	 */
+	gender?: Gender | null
 
 	/** Read the front (`sentence`) or the back (`translation`) aloud. */
 	audioSide: AudioSide

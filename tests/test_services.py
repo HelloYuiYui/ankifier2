@@ -293,6 +293,19 @@ def test_generate_batch_passes_sense_count_and_context_to_the_model(
 	assert [c.id for c in cards] == ["a#1", "b#1"]
 
 
+def test_generate_batch_carries_the_gender_onto_the_card(monkeypatch, settings):
+	monkeypatch.setattr(services, "_mistral_client", lambda: object())
+	monkeypatch.setattr(
+		services.mistral_connector,
+		"query_senses",
+		lambda c, e, lang, **kw: [sense(gender="feminine")],
+	)
+	cards, _ = services.generate_batch(
+		[GenerateRow(source_id="a", text="glace")], settings
+	)
+	assert cards[0].gender == "feminine"
+
+
 # ---------------------------------------------------------------------------
 # preflight
 # ---------------------------------------------------------------------------
@@ -342,6 +355,21 @@ def test_each_kind_lands_in_its_own_deck_with_its_marker_tag(
 	assert "ankifier" in anki.notes[0]["tags"]
 	if tag:
 		assert tag in anki.notes[0]["tags"]
+
+
+def test_a_noun_is_tagged_with_its_level_and_gender(settings, anki, tts):
+	services.add_one(draft(level="A2", gender="feminine"), settings)
+	tags = anki.notes[0]["tags"]
+	assert "A2" in tags and "feminine" in tags
+
+
+def test_a_card_with_no_gender_gets_no_gender_tag(settings, anki, tts):
+	"""Not an "unknown-gender" tag: most words are not nouns."""
+	services.add_one(draft(level=None), settings)
+	tags = anki.notes[0]["tags"]
+	assert "unknown-level" in tags
+	assert not {"masculine", "feminine"} & set(tags)
+	assert not any("gender" in t for t in tags)
 
 
 def test_a_cloze_sentence_becomes_a_cloze_note(settings, anki, tts):

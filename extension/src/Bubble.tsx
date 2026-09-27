@@ -190,6 +190,9 @@ export function Bubble({ host }: { host: HTMLElement }) {
 				{'draft' in state && state.draft.level && (
 					<span className="badge">{state.draft.level}</span>
 				)}
+				{'draft' in state && state.draft.gender && (
+					<span className="badge">{state.draft.gender}</span>
+				)}
 				<button
 					type="button"
 					className="close"
