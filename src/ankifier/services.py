@@ -27,6 +27,7 @@ from ankifier.elevenlabs_connector import generate_audio as tts
 from ankifier.elevenlabs_connector import init_client as init_elevenlabs
 from ankifier.schemas import (
 	AddResult,
+	AudioSide,
 	CardDraft,
 	ClozeResult,
 	ClozeText,
@@ -72,7 +73,13 @@ def render_cloze(texts: list[ClozeText]) -> list[ClozeResult]:
 	return results
 
 
-def manual_draft(source_id: str, front: str, back: str, use_cloze: bool) -> CardDraft:
+def manual_draft(
+	source_id: str,
+	front: str,
+	back: str,
+	use_cloze: bool,
+	audio_side: AudioSide = "front",
+) -> CardDraft:
 	"""Build a manual card without calling anything.
 
 	The client normally builds these itself from /api/cloze/preview; this exists
@@ -92,8 +99,10 @@ def manual_draft(source_id: str, front: str, back: str, use_cloze: bool) -> Card
 		sentence=plain,
 		cloze_sentence=cloze_text,
 		translation=back,
+		audio_side=audio_side,
 		# A stem built from the raw front would carry the marker punctuation.
-		audio_stem=plain,
+		# The back carries no markers, so it can name its own file.
+		audio_stem=None if audio_side == "back" else plain,
 	)
 
 
@@ -166,6 +175,20 @@ def generate_batch(
 # ---------------------------------------------------------------------------
 # Audio
 # ---------------------------------------------------------------------------
+def spoken_text(card: CardDraft) -> tuple[str, str | None]:
+	"""The text ElevenLabs reads for this card, and the stem that names its file.
+
+	Where the sound tag ends up is not a decision this makes: add_cloze_note and
+	add_basic_note both put it on the note's back field, so it plays on reveal
+	whichever side is read.
+	"""
+	if card.audio_side == "back":
+		# Not card.word -- that is the front, and naming the file after it would
+		# describe audio the file does not contain.
+		return card.translation, card.audio_stem
+	return card.sentence, card.audio_stem or card.word
+
+
 def audio_path(text: str, stem: str | None, settings: Settings) -> Path:
 	return settings.audio_root / audio_filename(text, stem)
 
@@ -223,9 +246,18 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 	still created, silently, exactly as before.
 	"""
 	deck = settings.deck_for(card.kind)
-	filename = audio_filename(card.sentence, card.audio_stem or card.word)
+	text, stem = spoken_text(card)
+	filename = audio_filename(text, stem)
 	path = settings.audio_root / filename
 	note_type = "Cloze" if "{{c" in card.cloze_sentence else "Basic"
+
+	# A card set to read a side that is empty has nothing to say. audio_filename
+	# still returns a name for it, and sending "" to ElevenLabs is an error, so
+	# the audio is skipped rather than attempted -- the card is still made.
+	nothing_to_read = Status(
+		state="skipped", detail=f"nothing to read -- the {card.audio_side} is empty"
+	)
+	speakable = bool(text.strip())
 
 	if dry_run:
 		# Everything derived, nothing spent and nothing written: the deck, the
@@ -234,18 +266,25 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 		# run costs no ElevenLabs credits either.
 		return AddResult(
 			id=card.id,
-			audio=Status(state="skipped", detail=f"dry run -- would write {filename}"),
+			audio=(
+				Status(state="skipped", detail=f"dry run -- would write {filename}")
+				if speakable
+				else nothing_to_read
+			),
 			card=Status(
 				state="skipped", detail=f"dry run -- would add a {note_type} note"
 			),
 			deck=deck,
 		)
 
-	audio = Status(state="ok")
-	try:
-		tts(_elevenlabs_client(), card.sentence, path)
-	except Exception as e:
-		audio = Status(state="error", detail=str(e))
+	if not speakable:
+		audio = nothing_to_read
+	else:
+		audio = Status(state="ok")
+		try:
+			tts(_elevenlabs_client(), text, path)
+		except Exception as e:
+			audio = Status(state="error", detail=str(e))
 
 	audio_ok = audio.state == "ok"
 	status = Status(state="ok")

@@ -69,6 +69,12 @@ To generate using your own custom sentence as a cloze card, put your target word
 Everything after the first colon is the hint Anki shows on the card; a hint is
 never read aloud. 
 
+On the manual page each row has an **Audio** toggle: *Front* (the default) reads
+the sentence you typed, *Back* reads the text in the Back column instead. Pick
+*Back* when hearing the front would give the answer away. It only changes *what* 
+is spoken: the `[sound:...]` tag goes on the note's back field either way, so the 
+audio never plays before you turn the card over.
+
 <!-- The rendering lives in `cloze.py` alone and is reached over
 `POST /api/cloze/preview`, so the preview you see while typing is produced by
 exactly the code that builds the card. -->
