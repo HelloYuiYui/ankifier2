@@ -24,6 +24,11 @@ Kind = Literal["generated", "as_is", "manual"]
 # dry_run was set.
 State = Literal["ok", "skipped", "error"]
 
+# Which of a card's two texts ElevenLabs reads. It does not move the sound tag:
+# that goes on the note's back field either way, so audio never plays before the
+# card is turned over -- this only decides what is heard once it is.
+AudioSide = Literal["front", "back"]
+
 
 class Base(BaseModel):
 	model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -59,7 +64,7 @@ class CardDraft(Base):
 	sense_number: int = 1
 	sense_description: str = ""
 
-	# What ElevenLabs reads. Always marker-free.
+	# What ElevenLabs reads unless audio_side is "back". Always marker-free.
 	sentence: str
 	# The Anki "Text" (Cloze) or "Front" (Basic) field.
 	cloze_sentence: str
@@ -71,6 +76,11 @@ class CardDraft(Base):
 	hidden_text: str = ""
 	hint: str = ""
 	level: CEFRLevel | None = None
+
+	# Read the front (`sentence`) or the back (`translation`) aloud. A card whose
+	# front is a prompt to produce from memory -- a subjunctive form, say --
+	# wants the back: hearing the front would hand over the answer.
+	audio_side: AudioSide = "front"
 
 	# Names the audio file when the spoken text is unwieldy (an as-is card's
 	# "word" is a whole sentence). Cosmetic; the file's identity is its content.

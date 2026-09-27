@@ -76,7 +76,9 @@ export function Review() {
 			<p className="small muted" style={{ marginTop: 0 }}>
 				Click the spoken text, card front or back to edit it. Editing the spoken
 				text gives the card its own audio file — it never overwrites a card you
-				have already made.
+				have already made. A row marked{' '}
+				<span className="badge neutral">reads the back</span> is spoken from its
+				back text, so editing either edits both.
 			</p>
 
 			{errors.length > 0 && (
@@ -131,11 +133,29 @@ export function Review() {
 									</td>
 								)}
 								<td>
+									{/* Bound to whichever field is read aloud: a
+									    column called "Spoken text" that showed the
+									    front of a back-read card would be a lie,
+									    and editing it would change nothing. */}
 									<EditableCell
 										label="Spoken text"
-										value={d.sentence}
-										onChange={edit(d.id, 'sentence')}
+										value={
+											d.audioSide === 'back'
+												? d.translation
+												: d.sentence
+										}
+										onChange={edit(
+											d.id,
+											d.audioSide === 'back'
+												? 'translation'
+												: 'sentence',
+										)}
 									/>
+									{d.audioSide === 'back' && (
+										<span className="badge neutral">
+											reads the back
+										</span>
+									)}
 								</td>
 								<td>
 									<EditableCell

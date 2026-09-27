@@ -3,9 +3,12 @@ import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
 import { ClozePreview } from '../components/ClozePreview'
-import type { CardDraft, ClozeResult, ManualRowInput } from '../api/types'
+import type { AudioSide, CardDraft, ClozeResult, ManualRowInput } from '../api/types'
 import { emptyManualRow, useBatch } from '../store/batch'
 import { useDebounced } from '../lib/useDebounced'
+
+/** Rows persisted before this column existed have no side; they read the front. */
+const sideOf = (row: ManualRowInput): AudioSide => row.audioSide ?? 'front'
 
 /**
  * The manual flow, in one screen.
@@ -87,6 +90,7 @@ export function ManualInput() {
 			const preview = r.cloze ? previews[r.front] : undefined
 			const plain = preview?.plain ?? r.front.trim()
 			const cloze = preview?.cloze ?? r.front.trim()
+			const audioSide = sideOf(r)
 
 			return {
 				id: `${r.id}#1`,
@@ -101,9 +105,11 @@ export function ManualInput() {
 				hiddenText: '',
 				hint: '',
 				level: null,
-				// Named after the spoken text, so the filename never carries marker
-				// punctuation.
-				audioStem: plain,
+				audioSide,
+				// Named after the spoken text, so the filename never carries
+				// marker punctuation. A back-read row needs no stem: the back
+				// has no markers in it, so it names its own file.
+				audioStem: audioSide === 'back' ? null : plain,
 			}
 		})
 
@@ -118,13 +124,21 @@ export function ManualInput() {
 				Nothing here touches the AI. Mark what to hide as <code>[[word]]</code>,
 				or <code>[[word:hint]]</code> to show a hint on the card.
 			</p>
+			<p className="small muted" style={{ marginTop: 0 }}>
+				<strong>Audio</strong> picks which side is read aloud — switch a row to{' '}
+				<em>Back</em> when hearing the front would give the answer away, as it
+				would for a conjugation you mean to produce from memory. The sound sits
+				on the back of the card either way, so it only plays once you turn the
+				card over.
+			</p>
 
 			<div className="scroll">
 				<table>
 					<thead>
 						<tr>
-							<th style={{ width: '44%' }}>Front</th>
-							<th style={{ width: '34%' }}>Back</th>
+							<th style={{ width: '40%' }}>Front</th>
+							<th style={{ width: '32%' }}>Back</th>
+							<th>Audio</th>
 							<th>Cloze</th>
 							<th />
 						</tr>
@@ -164,6 +178,26 @@ export function ManualInput() {
 												patch(row.id, { back: e.target.value })
 											}
 										/>
+									</td>
+									<td>
+										<select
+											aria-label="Audio from"
+											value={sideOf(row)}
+											onChange={(e) =>
+												patch(row.id, {
+													audioSide: e.target
+														.value as AudioSide,
+												})
+											}
+										>
+											<option value="front">Front</option>
+											<option value="back">Back</option>
+										</select>
+										{sideOf(row) === 'back' && !row.back.trim() && (
+											<div className="small muted">
+												No back text — no audio.
+											</div>
+										)}
 									</td>
 									<td>
 										<label className="check">

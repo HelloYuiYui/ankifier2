@@ -10,6 +10,11 @@
 export type Kind = 'generated' | 'as_is' | 'manual'
 export type State = 'ok' | 'skipped' | 'error'
 export type CEFRLevel = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2'
+/**
+ * Which text ElevenLabs reads. It does not move the sound tag -- that is on the
+ * note's back field either way, so audio only plays once the card is turned.
+ */
+export type AudioSide = 'front' | 'back'
 
 /**
  * One prospective Anki note.
@@ -34,7 +39,7 @@ export interface CardDraft {
 	senseNumber: number
 	senseDescription: string
 
-	/** What ElevenLabs reads. Always marker-free. Editable at review. */
+	/** What ElevenLabs reads unless `audioSide` is 'back'. Marker-free. Editable. */
 	sentence: string
 	/** The Anki "Text" (Cloze) or "Front" (Basic) field. Editable at review. */
 	clozeSentence: string
@@ -46,6 +51,8 @@ export interface CardDraft {
 	hint: string
 	level: CEFRLevel | null
 
+	/** Read the front (`sentence`) or the back (`translation`) aloud. */
+	audioSide: AudioSide
 	/** Names the audio file when the spoken text is unwieldy. Cosmetic. */
 	audioStem: string | null
 }
@@ -140,4 +147,6 @@ export interface ManualRowInput {
 	front: string
 	back: string
 	cloze: boolean
+	/** Optional: rows persisted before this column existed have no value. */
+	audioSide?: AudioSide
 }
