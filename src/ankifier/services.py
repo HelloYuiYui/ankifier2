@@ -247,8 +247,19 @@ def preflight(
 		ensure_deck(deck)
 
 
+def parse_tags(text: str) -> list[str]:
+	"""Split the user's "past tense, food" into Anki tags.
+
+	Anki separates tags with spaces, so a space inside one would quietly make
+	two: "past tense" becomes past_tense instead.
+	"""
+	tags = ("_".join(part.split()) for part in text.split(","))
+	return list(dict.fromkeys(t for t in tags if t))
+
+
 def note_tags(card: CardDraft, settings: Settings) -> list[str]:
-	"""The kind's tags, the CEFR level, the part of speech, and a noun's gender."""
+	"""The derived tags -- kind, CEFR level, part of speech, a noun's gender --
+	then the user's own."""
 	tags = [*settings.tags_for(card.kind), card.level or "unknown-level"]
 	# Likewise no "unknown-pos": a function word has none, which is not unknown.
 	if card.part_of_speech:
@@ -257,7 +268,9 @@ def note_tags(card: CardDraft, settings: Settings) -> list[str]:
 	# every verb with it would bury the tag that means something.
 	if card.gender:
 		tags.append(card.gender)
-	return tags
+	# Appended, never substituted: a user tag can add to the derived ones but
+	# not remove them. Duplicates of a derived tag are dropped.
+	return list(dict.fromkeys([*tags, *parse_tags(card.extra_tags)]))
 
 
 def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:

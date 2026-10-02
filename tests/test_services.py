@@ -370,6 +370,21 @@ def test_a_card_is_tagged_with_its_part_of_speech(settings, anki, tts):
 	assert "noun" in tags and "feminine" in tags
 
 
+def test_user_tags_are_split_cleaned_and_appended(settings, anki, tts):
+	services.add_one(
+		draft(level="A2", extra_tags=" food,  past tense ,,food, A2 "), settings
+	)
+	tags = anki.notes[0]["tags"]
+	# After every derived tag, each once: the user's A2 is the level's A2.
+	assert tags[-2:] == ["food", "past_tense"]
+	assert tags.count("A2") == 1 and tags.count("food") == 1
+
+
+def test_no_user_tags_adds_nothing(settings, anki, tts):
+	services.add_one(draft(level="A2"), settings)
+	assert anki.notes[0]["tags"][-1] == "A2"
+
+
 def test_a_function_word_gets_no_part_of_speech_tag(settings, anki, tts):
 	services.add_one(draft(part_of_speech=None), settings)
 	tags = set(anki.notes[0]["tags"])

@@ -42,6 +42,12 @@ export function CardEditor({
 				value={draft.translation}
 				onChange={(v) => onChange({ translation: v })}
 			/>
+			<Field
+				label="Tags"
+				note="Comma-separated, added to the level and word-class tags."
+				value={draft.extraTags ?? ''}
+				onChange={(v) => onChange({ extraTags: v })}
+			/>
 		</div>
 	)
 }

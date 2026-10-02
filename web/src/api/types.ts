@@ -24,4 +24,6 @@ export interface ManualRowInput {
 	cloze: boolean
 	/** Optional: rows persisted before this column existed have no value. */
 	audioSide?: AudioSide
+	/** Comma-separated; optional for the same reason as `audioSide`. */
+	tags?: string
 }

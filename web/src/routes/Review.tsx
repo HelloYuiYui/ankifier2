@@ -74,9 +74,10 @@ export function Review() {
 				Review — {kept.length} of {drafts.length} selected
 			</h2>
 			<p className="small muted" style={{ marginTop: 0 }}>
-				Click the spoken text, card front or back to edit it. Editing the spoken
-				text gives the card its own audio file — it never overwrites a card you
-				have already made. A row marked{' '}
+				Click the spoken text, card front, back or tags to edit it. Tags are
+				comma-separated and are added to the level and word-class tags. Editing
+				the spoken text gives the card its own audio file — it never overwrites
+				a card you have already made. A row marked{' '}
 				<span className="badge neutral">reads the back</span> is spoken from its
 				back text, so editing either edits both.
 			</p>
@@ -103,6 +104,7 @@ export function Review() {
 							<th style={{ width: '26%' }}>Spoken text</th>
 							<th style={{ width: '26%' }}>Card front</th>
 							<th style={{ width: '20%' }}>Back</th>
+							<th>Tags</th>
 							{showSenses && <th>Level</th>}
 						</tr>
 					</thead>
@@ -171,6 +173,13 @@ export function Review() {
 										label="Back"
 										value={d.translation}
 										onChange={edit(d.id, 'translation')}
+									/>
+								</td>
+								<td className="small">
+									<EditableCell
+										label="Tags"
+										value={d.extraTags ?? ''}
+										onChange={edit(d.id, 'extraTags')}
 									/>
 								</td>
 								{showSenses && (
