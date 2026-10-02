@@ -38,7 +38,6 @@ export const emptyManualRow = (): ManualRowInput => ({
 	back: '',
 	cloze: true,
 	audioSide: 'front',
-	tags: '',
 })
 
 interface BatchState {

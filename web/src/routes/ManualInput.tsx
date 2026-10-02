@@ -102,7 +102,6 @@ export function ManualInput() {
 				sentence: plain,
 				clozeSentence: cloze,
 				translation: r.back.trim(),
-				extraTags: r.tags ?? '',
 				hiddenText: '',
 				hint: '',
 				level: null,
@@ -137,9 +136,8 @@ export function ManualInput() {
 				<table>
 					<thead>
 						<tr>
-							<th style={{ width: '34%' }}>Front</th>
-							<th style={{ width: '26%' }}>Back</th>
-							<th style={{ width: '16%' }}>Tags</th>
+							<th style={{ width: '40%' }}>Front</th>
+							<th style={{ width: '32%' }}>Back</th>
 							<th>Audio</th>
 							<th>Cloze</th>
 							<th />
@@ -178,17 +176,6 @@ export function ManualInput() {
 											placeholder="You have to be there"
 											onChange={(e) =>
 												patch(row.id, { back: e.target.value })
-											}
-										/>
-									</td>
-									<td>
-										<textarea
-											rows={1}
-											aria-label="Tags"
-											value={row.tags ?? ''}
-											placeholder="subjunctive, être"
-											onChange={(e) =>
-												patch(row.id, { tags: e.target.value })
 											}
 										/>
 									</td>
