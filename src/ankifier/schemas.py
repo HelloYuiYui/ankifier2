@@ -35,9 +35,25 @@ class CardDraft(Base):
 	"""One prospective Anki note: the response of /api/generate and the request
 	of /api/cards/add, since the server keeps no batch state.
 
+<<<<<<< HEAD
 	Deck, tags and audio filename are deliberately absent: they are derived
 	server-side, so a client cannot create a stray deck or make two cards collide
 	on one audio file. `extra_tags` can only add to the derived tags.
+=======
+	The client holds these between generating and adding -- the server keeps no
+	batch state -- so this is both the response body of /api/generate and the
+	request body of /api/cards/add.
+
+	Note what is NOT here: deck, tags and audio filename. Those are derived
+<<<<<<< HEAD
+	server-side from `kind`, `deck_target` and the text, so a client cannot create a stray
+	deck and cannot make two cards collide on one audio file.
+=======
+	server-side from `kind` and from the text, so a client cannot create a stray
+	deck and cannot make two cards collide on one audio file. `extra_tags` only
+	adds to the derived tags; it cannot remove or replace them.
+>>>>>>> main
+>>>>>>> main
 	"""
 
 	# f"{source_id}#{n}". Deterministic, so regenerating a row keeps the user's
@@ -80,6 +96,10 @@ class CardDraft(Base):
 	# Names the audio file when the spoken text is unwieldy (an as-is card's
 	# "word" is a whole sentence). Cosmetic; the file's identity is its content.
 	audio_stem: str | None = None
+
+	# Manual cards only; ignored for every other kind. None means the
+	# configured manual deck.
+	deck_target: DeckTarget | None = None
 
 
 class Status(Base):
