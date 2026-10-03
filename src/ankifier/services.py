@@ -215,12 +215,7 @@ def preflight(
 	except OSError as e:
 		raise PreflightError(f"Audio directory is not writable: {e}") from e
 
-<<<<<<< HEAD
-	for deck in {settings.deck_for(c.kind) for c in cards}:
-=======
-	# Only the decks this batch actually needs.
 	for deck in {settings.deck_for(c.kind, c.deck_target) for c in cards}:
->>>>>>> main
 		ensure_deck(deck)
 
 
@@ -246,7 +241,7 @@ def note_tags(card: CardDraft, settings: Settings) -> list[str]:
 
 
 def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:
-	deck = settings.deck_for(card.kind)
+	deck = settings.deck_for(card.kind, card.deck_target)
 	text, stem = spoken_text(card)
 	filename = audio_filename(text, stem)
 	path = settings.audio_root / filename

@@ -354,6 +354,16 @@ def test_each_kind_lands_in_its_own_deck_with_its_marker_tag(
 		assert tag in anki.notes[0]["tags"]
 
 
+@pytest.mark.parametrize(
+	"target,deck",
+	[("vocabulary", "French::Vocabulary"), ("grammar", "French::Grammar")],
+)
+def test_a_manual_card_lands_in_its_target_deck(settings, anki, tts, target, deck):
+	result = services.add_one(draft(kind="manual", deck_target=target), settings)
+	assert result.deck == deck
+	assert anki.notes[0]["deck_name"] == deck
+
+
 def test_a_noun_is_tagged_with_its_level_and_gender(settings, anki, tts):
 	services.add_one(draft(level="A2", gender="feminine"), settings)
 	tags = anki.notes[0]["tags"]

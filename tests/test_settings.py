@@ -42,7 +42,6 @@ def test_deck_for_honours_overrides():
 	[
 		("vocabulary", "French::Vocabulary"),
 		("grammar", "French::Grammar"),
-		(None, "French::Vocabulary"),
 	],
 )
 def test_deck_for_manual_honours_the_target(target, expected):

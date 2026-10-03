@@ -147,8 +147,9 @@ export function ManualInput() {
 		<div className="panel">
 			<h2>Cards to write by hand</h2>
 			<p className="small muted" style={{ marginTop: 0 }}>
-				Nothing here touches the Mistral AI. Mark what to hide as <code>[[word]]</code>,
-				or <code>[[word:hint]]</code> to show a hint on the card.
+				Nothing here touches the Mistral AI. Mark what to hide as{' '}
+				<code>[[word]]</code>, or <code>[[word:hint]]</code> to show a hint on
+				the card.
 			</p>
 			<p className="small muted" style={{ marginTop: 0 }}>
 				<strong>Audio</strong> picks which side is read aloud — switch a row to{' '}
