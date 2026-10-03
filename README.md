@@ -192,7 +192,7 @@ credits.
 ## Audio filenames
 
 Audio is named by a hash of the spoken text, the voice and the model:
-`ankifier_{readable}_{digest}.mp3`. The same text always maps to the same file
+`{readable}_{digest}.mp3`. The same text always maps to the same file
 and different text never collides — so editing a sentence gives the card its own
 audio instead of overwriting the audio of one already in your collection, and a
 preview is reused by the later add rather than generated twice. -->

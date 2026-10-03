@@ -64,6 +64,11 @@ export interface CardDraft {
 	gender?: Gender | null
 	/** Also tagged. Optional for the same localStorage reason as `gender`. */
 	partOfSpeech?: PartOfSpeech | null
+	/**
+	 * The user's own tags as typed, comma-separated: the server splits them and
+	 * adds them to the ones it derives. Optional for the localStorage reason above.
+	 */
+	extraTags?: string
 
 	/** Read the front (`sentence`) or the back (`translation`) aloud. */
 	audioSide: AudioSide

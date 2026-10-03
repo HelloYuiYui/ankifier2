@@ -146,6 +146,7 @@ def test_generate_returns_cards_and_errors(client, monkeypatch):
 	assert body["cards"][0]["clozeSentence"] == "Je {{c1::mange}}"
 	assert body["cards"][0]["gender"] is None
 	assert body["cards"][0]["partOfSpeech"] is None
+	assert body["cards"][0]["extraTags"] == ""
 
 
 def test_generate_with_no_rows_is_an_empty_result_not_an_error(client):
@@ -281,9 +282,9 @@ def test_the_client_cannot_choose_a_deck(client, monkeypatch):
 # ---------------------------------------------------------------------------
 def test_audio_serves_a_file(client, settings):
 	settings.audio_root.mkdir(parents=True, exist_ok=True)
-	(settings.audio_root / "ankifier_x_123.mp3").write_bytes(b"ID3fake")
+	(settings.audio_root / "x_123.mp3").write_bytes(b"ID3fake")
 
-	response = client.get("/api/audio/ankifier_x_123.mp3")
+	response = client.get("/api/audio/x_123.mp3")
 	assert response.status_code == 200
 	assert response.headers["content-type"] == "audio/mpeg"
 	assert response.content == b"ID3fake"
@@ -324,13 +325,13 @@ def test_audio_preview_is_503_without_a_key(tmp_path):
 def test_audio_preview_returns_a_url(client, settings, monkeypatch):
 	def fake_synth(text, stem, s):
 		s.audio_root.mkdir(parents=True, exist_ok=True)
-		path = s.audio_root / "ankifier_je_mange_abc.mp3"
+		path = s.audio_root / "je_mange_abc.mp3"
 		path.write_bytes(b"ID3")
 		return path
 
 	monkeypatch.setattr(services, "synthesize", fake_synth)
 	body = client.post("/api/audio/preview", json={"text": "Je mange"}).json()
-	assert body["audioUrl"] == "/api/audio/ankifier_je_mange_abc.mp3"
+	assert body["audioUrl"] == "/api/audio/je_mange_abc.mp3"
 
 
 # ---------------------------------------------------------------------------

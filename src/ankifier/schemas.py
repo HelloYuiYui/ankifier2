@@ -46,7 +46,8 @@ class CardDraft(Base):
 
 	Note what is NOT here: deck, tags and audio filename. Those are derived
 	server-side from `kind` and from the text, so a client cannot create a stray
-	deck and cannot make two cards collide on one audio file.
+	deck and cannot make two cards collide on one audio file. `extra_tags` only
+	adds to the derived tags; it cannot remove or replace them.
 	"""
 
 	# f"{source_id}#{n}". Deterministic, so regenerating one input row produces
@@ -80,6 +81,11 @@ class CardDraft(Base):
 	gender: Gender | None = None
 	# Noun/verb/adjective/adverb only; also a tag. None for function words.
 	part_of_speech: PartOfSpeech | None = None
+
+	# The user's own tags, as typed: comma-separated text, not a list. The UIs
+	# store each keystroke, and a list would eat a comma the moment it was typed.
+	# note_tags() splits and cleans it, so both clients share one parser.
+	extra_tags: str = Field("", max_length=500)
 
 	# Read the front (`sentence`) or the back (`translation`) aloud. A card whose
 	# front is a prompt to produce from memory -- a subjunctive form, say --

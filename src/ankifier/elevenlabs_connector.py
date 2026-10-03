@@ -35,17 +35,19 @@ def audio_filename(text: str, stem: str | None = None) -> str:
 	text (with the voice and model, since either changes the audio) means the
 	same text always maps to the same file and different text never collides.
 
-	The readable prefix is for finding and purging Ankifier's media in Anki; it
-	carries no identity.
+	The readable part is for finding a file by eye; it carries no identity.
+	There used to be an "ankifier_" prefix too, to tell this tool's media from
+	other decks'. Dropped because all the audio in the collection comes from
+	here, so it marked nothing. Files already in Anki keep the old names.
 	"""
 	settings = get_settings()
 	digest = hashlib.sha1(
 		f"{settings.elevenlabs_voice_id}|{settings.elevenlabs_model}|{text}".encode()
 	).hexdigest()[:10]
 	# sanitize_filename returns "" for all-punctuation input, which would leave
-	# a name starting with an underscore.
+	# a name starting with an underscore -- with no prefix, a bare "_<hash>".
 	safe = sanitize_filename(stem or text)[:40] or "card"
-	return f"ankifier_{safe}_{digest}.mp3"
+	return f"{safe}_{digest}.mp3"
 
 
 def generate_audio(

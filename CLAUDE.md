@@ -59,10 +59,12 @@ tests/                  pytest; every connector is faked (no network, no credits
   drafts it kept.
 - **The client never picks a deck, tags or audio filename.** These are derived server-side
   from `kind` (+ `deck_target` for manual cards) and the text. `deck_target` is an enum
-  (`vocabulary` | `grammar`), never a deck name.
+  (`vocabulary` | `grammar`), never a deck name. The one exception is `extra_tags`: raw
+  comma-separated text the user types, which `services.parse_tags` splits and *appends*.
+  It can't remove a derived tag.
 - **Changing `schemas.py` means changing `packages/api/src/types.ts` in the same change.**
   No codegen. Check `/docs`.
-- **Audio is content-addressed:** `ankifier_{readable}_{hash}.mp3`, so identical text
+- **Audio is content-addressed:** `{readable}_{hash}.mp3` (no prefix since Oct 2026; old files keep `ankifier_`), so identical text
   reuses the file. The `[sound:...]` tag always goes on the note's **back** field.
   `audio_side` only decides *what* is read (sentence vs translation).
 - **Hints are never read aloud.** `cloze.render` returns `(plain, cloze)`, and only
@@ -93,9 +95,10 @@ Empty hint -> no `::`. Stray `[[`/`]]` are stripped. All of this lives in `cloze
 `generated` -> `ANKI_DECK` (French::Vocabulary); `as_is` -> `ANKI_ASIS_DECK`
 (French::Grammar); `manual` -> `ANKI_MANUAL_DECK`, or vocab/grammar via
 `deck_target`. Tags (`services.note_tags`): `ANKI_TAGS` + `as-is`/`manual` + the CEFR level
-(or `unknown-level`) + `noun`/`verb`/`adjective`/`adverb` + `masculine`/`feminine` for nouns.
-Function words get no part-of-speech tag and non-nouns no gender tag (no `unknown-*`). A
++ `noun`/`verb`/`adjective`/`adverb` + `masculine`/`feminine` for nouns. A missing value is no
+tag at all (no `unknown-*`): no level, a function word, a non-noun. A
 `(verb)`-style annotation in the input overrides Mistral's part of speech; only a noun keeps a gender.
+Then the user's `extra_tags` (spaces inside a tag become `_`, duplicates dropped).
 
 ## Commands
 

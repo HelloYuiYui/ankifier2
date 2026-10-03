@@ -370,6 +370,21 @@ def test_a_card_is_tagged_with_its_part_of_speech(settings, anki, tts):
 	assert "noun" in tags and "feminine" in tags
 
 
+def test_user_tags_are_split_cleaned_and_appended(settings, anki, tts):
+	services.add_one(
+		draft(level="A2", extra_tags=" food,  past tense ,,food, A2 "), settings
+	)
+	tags = anki.notes[0]["tags"]
+	# After every derived tag, each once: the user's A2 is the level's A2.
+	assert tags[-2:] == ["food", "past_tense"]
+	assert tags.count("A2") == 1 and tags.count("food") == 1
+
+
+def test_no_user_tags_adds_nothing(settings, anki, tts):
+	services.add_one(draft(level="A2"), settings)
+	assert anki.notes[0]["tags"][-1] == "A2"
+
+
 def test_a_function_word_gets_no_part_of_speech_tag(settings, anki, tts):
 	services.add_one(draft(part_of_speech=None), settings)
 	tags = set(anki.notes[0]["tags"])
@@ -379,11 +394,18 @@ def test_a_function_word_gets_no_part_of_speech_tag(settings, anki, tts):
 
 def test_a_card_with_no_gender_gets_no_gender_tag(settings, anki, tts):
 	"""Not an "unknown-gender" tag: most words are not nouns."""
-	services.add_one(draft(level=None), settings)
+	services.add_one(draft(), settings)
 	tags = anki.notes[0]["tags"]
-	assert "unknown-level" in tags
 	assert not {"masculine", "feminine"} & set(tags)
 	assert not any("gender" in t for t in tags)
+
+
+def test_a_card_with_no_level_gets_no_level_tag(settings, anki, tts):
+	"""No "unknown-level" either: an untagged card already says that."""
+	services.add_one(draft(level=None), settings)
+	tags = anki.notes[0]["tags"]
+	assert tags == settings.tags_for("generated")
+	assert not any("unknown" in t for t in tags)
 
 
 def test_a_cloze_sentence_becomes_a_cloze_note(settings, anki, tts):
@@ -509,7 +531,7 @@ def test_any_other_anki_failure_is_an_error(settings, tts, monkeypatch):
 def test_audio_url_is_returned(settings, anki, tts):
 	result = services.add_one(draft(), settings)
 	assert result.audio_url == f"/api/audio/{anki.media[0]}"
-	assert result.audio_url.startswith("/api/audio/ankifier_")
+	assert result.audio_url.startswith("/api/audio/manger_")
 
 
 def test_an_accented_filename_is_percent_encoded_in_the_url(settings, anki, tts):
