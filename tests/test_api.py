@@ -144,6 +144,9 @@ def test_generate_returns_cards_and_errors(client, monkeypatch):
 	assert body["errors"] == []
 	assert body["cards"][0]["sourceId"] == "a"
 	assert body["cards"][0]["clozeSentence"] == "Je {{c1::mange}}"
+	assert body["cards"][0]["gender"] is None
+	assert body["cards"][0]["partOfSpeech"] is None
+	assert body["cards"][0]["extraTags"] == ""
 
 
 def test_generate_with_no_rows_is_an_empty_result_not_an_error(client):
@@ -172,6 +175,28 @@ def test_generate_rejects_an_unknown_kind(client):
 		json={"rows": [{"sourceId": "a", "text": "x", "kind": "manual"}]},
 	)
 	assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+	"extra",
+	[{"maxSenses": 0}, {"maxSenses": 4}, {"context": "x" * 1001}],
+)
+def test_generate_rejects_out_of_range_senses_and_oversized_context(client, extra):
+	response = client.post(
+		"/api/generate",
+		json={"rows": [{"sourceId": "a", "text": "x", **extra}]},
+	)
+	assert response.status_code == 422
+
+
+def test_generate_defaults_to_three_senses_and_no_context(client, monkeypatch):
+	"""The web table sends neither field and must keep its three senses."""
+	seen = []
+	monkeypatch.setattr(
+		services, "generate_batch", lambda rows, s: seen.extend(rows) or ([], [])
+	)
+	client.post("/api/generate", json={"rows": [{"sourceId": "a", "text": "x"}]})
+	assert (seen[0].max_senses, seen[0].context) == (3, None)
 
 
 # ---------------------------------------------------------------------------
@@ -265,9 +290,9 @@ def test_an_unknown_deck_target_is_rejected(client):
 # ---------------------------------------------------------------------------
 def test_audio_serves_a_file(client, settings):
 	settings.audio_root.mkdir(parents=True, exist_ok=True)
-	(settings.audio_root / "ankifier_x_123.mp3").write_bytes(b"ID3fake")
+	(settings.audio_root / "x_123.mp3").write_bytes(b"ID3fake")
 
-	response = client.get("/api/audio/ankifier_x_123.mp3")
+	response = client.get("/api/audio/x_123.mp3")
 	assert response.status_code == 200
 	assert response.headers["content-type"] == "audio/mpeg"
 	assert response.content == b"ID3fake"
@@ -308,13 +333,13 @@ def test_audio_preview_is_503_without_a_key(tmp_path):
 def test_audio_preview_returns_a_url(client, settings, monkeypatch):
 	def fake_synth(text, stem, s):
 		s.audio_root.mkdir(parents=True, exist_ok=True)
-		path = s.audio_root / "ankifier_je_mange_abc.mp3"
+		path = s.audio_root / "je_mange_abc.mp3"
 		path.write_bytes(b"ID3")
 		return path
 
 	monkeypatch.setattr(services, "synthesize", fake_synth)
 	body = client.post("/api/audio/preview", json={"text": "Je mange"}).json()
-	assert body["audioUrl"] == "/api/audio/ankifier_je_mange_abc.mp3"
+	assert body["audioUrl"] == "/api/audio/je_mange_abc.mp3"
 
 
 # ---------------------------------------------------------------------------

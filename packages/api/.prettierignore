@@ -1,0 +1,4 @@
+node_modules
+
+# Lockfiles are machine-written.
+pnpm-lock.yaml

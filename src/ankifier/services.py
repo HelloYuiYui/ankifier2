@@ -124,15 +124,21 @@ def generate_batch(
 	for row in rows:
 		as_is = row.kind == "as_is"
 		entry = parse_line(row.text, as_is=as_is)
-		# "As is" skips sense generation entirely: the text is already the card,
-		# so the model is only asked for its translation.
-		run = (
-			mistral_connector.translate_as_is
-			if as_is
-			else mistral_connector.query_senses
-		)
 		try:
-			senses = run(client, entry, settings.target_lang)
+			if as_is:
+				# "As is" skips sense generation entirely: the text is already the
+				# card, so the model is only asked for its translation.
+				senses = mistral_connector.translate_as_is(
+					client, entry, settings.target_lang
+				)
+			else:
+				senses = mistral_connector.query_senses(
+					client,
+					entry,
+					settings.target_lang,
+					max_senses=row.max_senses,
+					context=row.context,
+				)
 		except Exception as e:
 			errors.append(
 				GenerateError(source_id=row.source_id, text=row.text, message=str(e))
@@ -166,6 +172,8 @@ def generate_batch(
 					hint=sense.hint,
 					translation=sense.translation,
 					level=sense.level.value if sense.level else None,
+					gender=sense.gender,
+					part_of_speech=sense.part_of_speech,
 				)
 			)
 
@@ -239,6 +247,35 @@ def preflight(
 		ensure_deck(deck)
 
 
+def parse_tags(text: str) -> list[str]:
+	"""Split the user's "past tense, food" into Anki tags.
+
+	Anki separates tags with spaces, so a space inside one would quietly make
+	two: "past tense" becomes past_tense instead.
+	"""
+	tags = ("_".join(part.split()) for part in text.split(","))
+	return list(dict.fromkeys(t for t in tags if t))
+
+
+def note_tags(card: CardDraft, settings: Settings) -> list[str]:
+	"""The derived tags -- kind, CEFR level, part of speech, a noun's gender --
+	then the user's own."""
+	# A missing value is simply no tag. There used to be an "unknown-level"
+	# tag, but nobody searches for it: a card without a level tag already is
+	# one, and none of these has an "unknown-*" counterpart.
+	tags = settings.tags_for(card.kind)
+	if card.level:
+		tags.append(card.level)
+	# A function word has no part of speech, which is not the same as unknown.
+	if card.part_of_speech:
+		tags.append(card.part_of_speech)
+	if card.gender:
+		tags.append(card.gender)
+	# Appended, never substituted: a user tag can add to the derived ones but
+	# not remove them. Duplicates of a derived tag are dropped.
+	return list(dict.fromkeys([*tags, *parse_tags(card.extra_tags)]))
+
+
 def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:
 	"""Audio, then the note, for one card.
 
@@ -297,7 +334,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				cloze_text=card.cloze_sentence,
 				back_extra=card.translation,
 				audio_filename=filename if audio_ok else None,
-				tags=[*settings.tags_for(card.kind), (str(card.level) if card.level else "unknown-level")],
+				tags=note_tags(card, settings),
 			)
 		else:
 			# Nothing to hide -- an as-is text with no [[...]] markers. Anki
@@ -307,7 +344,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				front=card.sentence,
 				back=card.translation,
 				audio_filename=filename if audio_ok else None,
-				tags=[*settings.tags_for(card.kind), (str(card.level) if card.level else "unknown-level")],
+				tags=note_tags(card, settings),
 			)
 	except RuntimeError as e:
 		if "duplicate" in str(e).lower():

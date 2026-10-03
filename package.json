@@ -3,11 +3,14 @@
 	"private": true,
 	"packageManager": "pnpm@12.5.1",
 	"scripts": {
-		"lint": "pnpm --filter web lint",
-		"lint:fix": "pnpm --filter web lint:fix",
-		"format": "pnpm --filter web format",
-		"format:check": "pnpm --filter web format:check",
-		"typecheck": "pnpm --filter web typecheck",
-		"build": "pnpm --filter web build"
+		"lint": "pnpm -r lint",
+		"lint:fix": "pnpm -r lint:fix",
+		"format": "pnpm -r format",
+		"format:check": "pnpm -r format:check",
+		"typecheck": "pnpm -r typecheck",
+		"build": "pnpm --filter web build",
+		"dev": "pnpm --filter web dev",
+		"build:ext": "pnpm --filter extension build",
+		"dev:ext": "pnpm --filter extension dev"
 	}
 }

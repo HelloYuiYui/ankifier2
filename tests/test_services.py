@@ -178,7 +178,7 @@ def test_generate_batch_fans_one_row_into_several_cards(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang: [sense(1), sense(2), sense(3)],
+		lambda c, e, lang, **kw: [sense(1), sense(2), sense(3)],
 	)
 	cards, errors = services.generate_batch(
 		[GenerateRow(source_id="a", text="manger")], settings
@@ -194,7 +194,7 @@ def test_generate_batch_keeps_submission_order(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang: [sense()],
+		lambda c, e, lang, **kw: [sense()],
 	)
 	rows = [GenerateRow(source_id=f"r{i}", text=f"w{i}") for i in range(5)]
 	cards, _ = services.generate_batch(rows, settings)
@@ -206,7 +206,7 @@ def test_a_failing_row_becomes_an_error_and_does_not_stop_the_batch(
 ):
 	monkeypatch.setattr(services, "_mistral_client", lambda: object())
 
-	def flaky(client, entry, lang):
+	def flaky(client, entry, lang, **kw):
 		if entry.raw == "bad":
 			raise RuntimeError("model exploded")
 		return [sense()]
@@ -230,7 +230,7 @@ def test_an_empty_sense_list_is_an_error_not_a_blank_card(monkeypatch, settings)
 	"""A blank card used to be addable, which sent an empty note to Anki."""
 	monkeypatch.setattr(services, "_mistral_client", lambda: object())
 	monkeypatch.setattr(
-		services.mistral_connector, "query_senses", lambda c, e, lang: []
+		services.mistral_connector, "query_senses", lambda c, e, lang, **kw: []
 	)
 	cards, errors = services.generate_batch(
 		[GenerateRow(source_id="a", text="manger")], settings
@@ -245,7 +245,7 @@ def test_as_is_rows_use_the_translate_only_path(monkeypatch, settings):
 	monkeypatch.setattr(
 		services.mistral_connector,
 		"query_senses",
-		lambda c, e, lang: used.append("query") or [sense()],
+		lambda c, e, lang, **kw: used.append("query") or [sense()],
 	)
 	monkeypatch.setattr(
 		services.mistral_connector,
@@ -260,6 +260,51 @@ def test_as_is_rows_use_the_translate_only_path(monkeypatch, settings):
 		settings,
 	)
 	assert used == ["query", "as_is"]
+
+
+def test_generate_batch_passes_sense_count_and_context_to_the_model(
+	monkeypatch, settings
+):
+	monkeypatch.setattr(services, "_mistral_client", lambda: object())
+	seen = {}
+
+	def query(client, entry, lang, **kw):
+		seen["query"] = kw
+		return [sense()]
+
+	def as_is(client, entry, lang, **kw):
+		seen["as_is"] = kw
+		return [sense()]
+
+	monkeypatch.setattr(services.mistral_connector, "query_senses", query)
+	monkeypatch.setattr(services.mistral_connector, "translate_as_is", as_is)
+	cards, _ = services.generate_batch(
+		[
+			GenerateRow(
+				source_id="a", text="glace", max_senses=1, context="Il se regarde."
+			),
+			GenerateRow(source_id="b", text="Il faut", kind="as_is", max_senses=1),
+		],
+		settings,
+	)
+	assert seen["query"] == {"max_senses": 1, "context": "Il se regarde."}
+	# A translation has no senses to count and no sense to disambiguate.
+	assert seen["as_is"] == {}
+	assert [c.id for c in cards] == ["a#1", "b#1"]
+
+
+def test_generate_batch_carries_the_gender_onto_the_card(monkeypatch, settings):
+	monkeypatch.setattr(services, "_mistral_client", lambda: object())
+	monkeypatch.setattr(
+		services.mistral_connector,
+		"query_senses",
+		lambda c, e, lang, **kw: [sense(gender="feminine", part_of_speech="noun")],
+	)
+	cards, _ = services.generate_batch(
+		[GenerateRow(source_id="a", text="glace")], settings
+	)
+	assert cards[0].gender == "feminine"
+	assert cards[0].part_of_speech == "noun"
 
 
 # ---------------------------------------------------------------------------
@@ -313,11 +358,54 @@ def test_each_kind_lands_in_its_own_deck_with_its_marker_tag(
 		assert tag in anki.notes[0]["tags"]
 
 
-def test_a_manual_card_can_target_the_grammar_deck(settings, anki, tts):
-	result = services.add_one(draft(kind="manual", deck_target="grammar"), settings)
-	assert result.deck == "French::Grammar"
-	assert anki.notes[0]["deck_name"] == "French::Grammar"
-	assert "manual" in anki.notes[0]["tags"]
+def test_a_noun_is_tagged_with_its_level_and_gender(settings, anki, tts):
+	services.add_one(draft(level="A2", gender="feminine"), settings)
+	tags = anki.notes[0]["tags"]
+	assert "A2" in tags and "feminine" in tags
+
+
+def test_a_card_is_tagged_with_its_part_of_speech(settings, anki, tts):
+	services.add_one(draft(part_of_speech="noun", gender="feminine"), settings)
+	tags = anki.notes[0]["tags"]
+	assert "noun" in tags and "feminine" in tags
+
+
+def test_user_tags_are_split_cleaned_and_appended(settings, anki, tts):
+	services.add_one(
+		draft(level="A2", extra_tags=" food,  past tense ,,food, A2 "), settings
+	)
+	tags = anki.notes[0]["tags"]
+	# After every derived tag, each once: the user's A2 is the level's A2.
+	assert tags[-2:] == ["food", "past_tense"]
+	assert tags.count("A2") == 1 and tags.count("food") == 1
+
+
+def test_no_user_tags_adds_nothing(settings, anki, tts):
+	services.add_one(draft(level="A2"), settings)
+	assert anki.notes[0]["tags"][-1] == "A2"
+
+
+def test_a_function_word_gets_no_part_of_speech_tag(settings, anki, tts):
+	services.add_one(draft(part_of_speech=None), settings)
+	tags = set(anki.notes[0]["tags"])
+	assert not {"noun", "verb", "adjective", "adverb"} & tags
+	assert not any("pos" in t or "unknown-part" in t for t in tags)
+
+
+def test_a_card_with_no_gender_gets_no_gender_tag(settings, anki, tts):
+	"""Not an "unknown-gender" tag: most words are not nouns."""
+	services.add_one(draft(), settings)
+	tags = anki.notes[0]["tags"]
+	assert not {"masculine", "feminine"} & set(tags)
+	assert not any("gender" in t for t in tags)
+
+
+def test_a_card_with_no_level_gets_no_level_tag(settings, anki, tts):
+	"""No "unknown-level" either: an untagged card already says that."""
+	services.add_one(draft(level=None), settings)
+	tags = anki.notes[0]["tags"]
+	assert tags == settings.tags_for("generated")
+	assert not any("unknown" in t for t in tags)
 
 
 def test_a_cloze_sentence_becomes_a_cloze_note(settings, anki, tts):
@@ -443,7 +531,7 @@ def test_any_other_anki_failure_is_an_error(settings, tts, monkeypatch):
 def test_audio_url_is_returned(settings, anki, tts):
 	result = services.add_one(draft(), settings)
 	assert result.audio_url == f"/api/audio/{anki.media[0]}"
-	assert result.audio_url.startswith("/api/audio/ankifier_")
+	assert result.audio_url.startswith("/api/audio/manger_")
 
 
 def test_an_accented_filename_is_percent_encoded_in_the_url(settings, anki, tts):

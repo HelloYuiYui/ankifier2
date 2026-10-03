@@ -6,6 +6,8 @@ a collision silently replaced the audio of a card already in the collection.
 These tests pin the properties that fix means.
 """
 
+import re
+
 import pytest
 
 from ankifier import elevenlabs_connector as el
@@ -83,16 +85,16 @@ def test_changing_voice_changes_the_name(monkeypatch):
 	assert el.audio_filename("Je mange") != before
 
 
-def test_name_is_prefixed_and_has_an_mp3_extension():
+def test_name_is_the_readable_text_then_the_hash():
+	"""No "ankifier_" prefix: all the audio in the collection is this tool's."""
 	name = el.audio_filename("Je mange")
-	assert name.startswith("ankifier_")
-	assert name.endswith(".mp3")
+	assert re.fullmatch(r"je_mange_[0-9a-f]{10}\.mp3", name)
 
 
 def test_all_punctuation_input_does_not_produce_a_leading_underscore():
 	"""sanitize_filename returns "" for "?!." -- the old scheme made "_1.mp3"."""
 	name = el.audio_filename("?!.", stem="?!.")
-	assert name.startswith("ankifier_card_")
+	assert name.startswith("card_")
 
 
 def test_long_text_is_truncated_but_still_unique():

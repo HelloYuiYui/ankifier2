@@ -13,7 +13,7 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 
-from ankifier.models import CEFRLevel
+from ankifier.models import CEFRLevel, Gender, PartOfSpeech
 
 # What a card is and where it came from. The three kinds differ only in which
 # deck and tags they get -- by the time a card is added, nothing else about them
@@ -50,8 +50,14 @@ class CardDraft(Base):
 	request body of /api/cards/add.
 
 	Note what is NOT here: deck, tags and audio filename. Those are derived
+<<<<<<< HEAD
 	server-side from `kind`, `deck_target` and the text, so a client cannot create a stray
 	deck and cannot make two cards collide on one audio file.
+=======
+	server-side from `kind` and from the text, so a client cannot create a stray
+	deck and cannot make two cards collide on one audio file. `extra_tags` only
+	adds to the derived tags; it cannot remove or replace them.
+>>>>>>> main
 	"""
 
 	# f"{source_id}#{n}". Deterministic, so regenerating one input row produces
@@ -81,6 +87,15 @@ class CardDraft(Base):
 	hidden_text: str = ""
 	hint: str = ""
 	level: CEFRLevel | None = None
+	# Nouns only; also becomes a tag on the note, as the level does.
+	gender: Gender | None = None
+	# Noun/verb/adjective/adverb only; also a tag. None for function words.
+	part_of_speech: PartOfSpeech | None = None
+
+	# The user's own tags, as typed: comma-separated text, not a list. The UIs
+	# store each keystroke, and a list would eat a comma the moment it was typed.
+	# note_tags() splits and cleans it, so both clients share one parser.
+	extra_tags: str = Field("", max_length=500)
 
 	# Read the front (`sentence`) or the back (`translation`) aloud. A card whose
 	# front is a prompt to produce from memory -- a subjunctive form, say --
@@ -119,6 +134,11 @@ class GenerateRow(Base):
 	text: str
 	# Only these two: a manual card never reaches the model.
 	kind: Literal["generated", "as_is"] = "generated"
+	# 1 for the browser extension (one card, fast), 3 for the web table.
+	max_senses: int = Field(3, ge=1, le=3)
+	# The page sentence the word was selected from. Mistral uses it to pick the
+	# sense meant there rather than the most common one. Ignored for as_is.
+	context: str | None = Field(None, max_length=1000)
 
 
 class GenerateRequest(Base):

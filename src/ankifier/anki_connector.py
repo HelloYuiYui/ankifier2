@@ -37,7 +37,7 @@ def check_connection() -> bool:
 
 
 def get_version() -> int | None:
-	"""The AnkiConnect API version, or None when Anki is not reachable."""
+	"""The AnkiConnect API version."""
 	try:
 		return _invoke("version")
 	except (requests.ConnectionError, requests.Timeout):
@@ -45,7 +45,6 @@ def get_version() -> int | None:
 
 
 def deck_names() -> list[str]:
-	"""Every deck in the collection."""
 	return _invoke("deckNames") or []
 
 
