@@ -3,12 +3,25 @@ import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
 import { ClozePreview } from '../components/ClozePreview'
-import type { AudioSide, CardDraft, ClozeResult, ManualRowInput } from '../api/types'
+import type {
+	CardDraft,
+	ClozeResult,
+	DeckTarget,
+	HealthResponse,
+	ManualRowInput,
+	AudioSide,
+} from '../api/types'
+
 import { emptyManualRow, useBatch } from '../store/batch'
 import { useDebounced } from '../lib/useDebounced'
 
 /** Rows persisted before this column existed have no side; they read the front. */
 const sideOf = (row: ManualRowInput): AudioSide => row.audioSide ?? 'front'
+
+const DECK_OPTIONS: { value: DeckTarget; label: string }[] = [
+	{ value: 'vocabulary', label: 'Vocabulary' },
+	{ value: 'grammar', label: 'Grammar' },
+]
 
 /**
  * The manual flow, in one screen.
@@ -23,6 +36,18 @@ export function ManualInput() {
 	const rows = useBatch((s) => s.manualRows)
 	const setRows = useBatch((s) => s.setManualRows)
 	const setDrafts = useBatch((s) => s.setDrafts)
+	const deck = useBatch((s) => s.manualDeck)
+	const setDeck = useBatch((s) => s.setManualDeck)
+
+	// Only for showing the real deck names on the toggle.
+	const [decks, setDecks] = useState<HealthResponse['decks'] | null>(null)
+	useEffect(() => {
+		api.health()
+			.then((h) => setDecks(h.decks))
+			.catch(() => {
+				/* the labels fall back to plain names */
+			})
+	}, [])
 
 	const [previews, setPreviews] = useState<Record<string, ClozeResult>>({})
 	const [error, setError] = useState<string | null>(null)
@@ -105,6 +130,7 @@ export function ManualInput() {
 				hiddenText: '',
 				hint: '',
 				level: null,
+				deckTarget: deck,
 				audioSide,
 				// Named after the spoken text, so the filename never carries
 				// marker punctuation. A back-read row needs no stem: the back
@@ -121,7 +147,7 @@ export function ManualInput() {
 		<div className="panel">
 			<h2>Cards to write by hand</h2>
 			<p className="small muted" style={{ marginTop: 0 }}>
-				Nothing here touches the AI. Mark what to hide as <code>[[word]]</code>,
+				Nothing here touches the Mistral AI. Mark what to hide as <code>[[word]]</code>,
 				or <code>[[word:hint]]</code> to show a hint on the card.
 			</p>
 			<p className="small muted" style={{ marginTop: 0 }}>
@@ -131,6 +157,21 @@ export function ManualInput() {
 				on the back of the card either way, so it only plays once you turn the
 				card over.
 			</p>
+
+			<div className="segmented" role="radiogroup" aria-label="Deck">
+				{DECK_OPTIONS.map(({ value, label }) => (
+					<button
+						key={value}
+						role="radio"
+						aria-checked={deck === value}
+						className={deck === value ? 'active' : undefined}
+						onClick={() => setDeck(value)}
+					>
+						{(value === 'vocabulary' ? decks?.generated : decks?.asIs) ??
+							label}
+					</button>
+				))}
+			</div>
 
 			<div className="scroll">
 				<table>

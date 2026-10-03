@@ -277,6 +277,14 @@ def test_the_client_cannot_choose_a_deck(client, monkeypatch):
 	assert not hasattr(seen[0], "tags")
 
 
+def test_an_unknown_deck_target_is_rejected(client):
+	response = client.post(
+		"/api/cards/add",
+		json={"cards": [card_payload(kind="manual", deckTarget="Attacker::Deck")]},
+	)
+	assert response.status_code == 422
+
+
 # ---------------------------------------------------------------------------
 # Audio
 # ---------------------------------------------------------------------------

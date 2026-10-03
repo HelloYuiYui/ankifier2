@@ -243,7 +243,7 @@ def preflight(
 		raise PreflightError(f"Audio directory is not writable: {e}") from e
 
 	# Only the decks this batch actually needs.
-	for deck in {settings.deck_for(c.kind) for c in cards}:
+	for deck in {settings.deck_for(c.kind, c.deck_target) for c in cards}:
 		ensure_deck(deck)
 
 

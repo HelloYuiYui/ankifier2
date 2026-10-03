@@ -86,13 +86,16 @@ class Settings(BaseSettings):
 	def anki_timeout(self) -> tuple[float, float]:
 		return (self.anki_connect_timeout, self.anki_read_timeout)
 
-	def deck_for(self, kind: Kind) -> str:
+	def deck_for(self, kind: Kind, target: str | None = None) -> str:
 		"""The deck a card of this kind belongs in.
 
 		As-is texts are hand-written grammar material and manual pairs are
 		written end to end by hand, so neither belongs in the generated
-		vocabulary deck.
+		vocabulary deck. A manual card may instead pick the vocabulary or the
+		grammar deck by name; other kinds ignore `target`.
 		"""
+		if kind == "manual" and target in ("vocabulary", "grammar"):
+			return self.anki_deck if target == "vocabulary" else self.anki_asis_deck
 		return {
 			"as_is": self.anki_asis_deck,
 			"manual": self.anki_manual_deck,
