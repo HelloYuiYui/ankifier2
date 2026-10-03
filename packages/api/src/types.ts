@@ -22,6 +22,8 @@ export type PartOfSpeech = 'noun' | 'verb' | 'adjective' | 'adverb'
  * note's back field either way, so audio only plays once the card is turned.
  */
 export type AudioSide = 'front' | 'back'
+/** Which configured deck a manual card goes to; never a deck name itself. */
+export type DeckTarget = 'vocabulary' | 'grammar'
 
 /**
  * One prospective Anki note.
@@ -31,7 +33,7 @@ export type AudioSide = 'front' | 'back'
  * /api/cards/add accepts.
  *
  * Deck, tags and audio filename are deliberately absent: the server derives
- * them from `kind` and from the text.
+ * them from `kind`, `deckTarget` and the text.
  */
 export interface CardDraft {
 	/** `${sourceId}#${n}`. Stable across regenerating a single input row. */
@@ -74,6 +76,8 @@ export interface CardDraft {
 	audioSide: AudioSide
 	/** Names the audio file when the spoken text is unwieldy. Cosmetic. */
 	audioStem: string | null
+	/** Manual cards only. Absent or null means the configured manual deck. */
+	deckTarget?: DeckTarget | null
 }
 
 export interface Status {

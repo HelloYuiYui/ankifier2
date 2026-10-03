@@ -1,15 +1,12 @@
-"""Tests for services.py, with every connector faked.
-
-The decisions pinned here are the ones web.py made inline and that a regression
-would be invisible: which deck a card lands in, which note type it becomes, that
-a failed audio still creates a card, and that a duplicate is a skip rather than
-an error.
+"""Every connector is faked. These pin decisions whose regression would be
+invisible: the deck, the note type, a failed audio still creating a card, and a
+duplicate being a skip rather than an error.
 """
 
 import pytest
 
 from ankifier import services
-from ankifier.models import Level, Sense
+from ankifier.models import Sense
 from ankifier.schemas import CardDraft, ClozeText, GenerateRow
 from ankifier.settings import Settings
 
@@ -168,7 +165,7 @@ def sense(n=1, **kw):
 		hint="eat",
 		cloze_sentence="Je {{c1::mange::eat}}",
 		translation="I eat",
-		level=Level(value="A1"),
+		level="A1",
 	)
 	return Sense(**{**base, **kw})
 
@@ -227,7 +224,7 @@ def test_a_failing_row_becomes_an_error_and_does_not_stop_the_batch(
 
 
 def test_an_empty_sense_list_is_an_error_not_a_blank_card(monkeypatch, settings):
-	"""A blank card used to be addable, which sent an empty note to Anki."""
+	"""A blank card would send an empty note to Anki."""
 	monkeypatch.setattr(services, "_mistral_client", lambda: object())
 	monkeypatch.setattr(
 		services.mistral_connector, "query_senses", lambda c, e, lang, **kw: []
@@ -329,10 +326,10 @@ def test_preflight_rejects_an_unreachable_anki(settings, anki, monkeypatch):
 
 def test_preflight_creates_only_the_decks_the_batch_needs(settings, anki):
 	services.preflight(
-		[draft(kind="generated"), draft(kind="manual"), draft(kind="generated")],
+		[draft(kind="generated"), draft(kind="as_is"), draft(kind="generated")],
 		settings,
 	)
-	assert sorted(anki.decks) == ["French::Vocabulary"]
+	assert sorted(anki.decks) == ["French::Grammar", "French::Vocabulary"]
 
 
 # ---------------------------------------------------------------------------
@@ -343,7 +340,6 @@ def test_preflight_creates_only_the_decks_the_batch_needs(settings, anki):
 	[
 		("generated", "French::Vocabulary", None),
 		("as_is", "French::Grammar", "as-is"),
-		("manual", "French::Vocabulary", "manual"),
 	],
 )
 def test_each_kind_lands_in_its_own_deck_with_its_marker_tag(
@@ -356,6 +352,16 @@ def test_each_kind_lands_in_its_own_deck_with_its_marker_tag(
 	assert "ankifier" in anki.notes[0]["tags"]
 	if tag:
 		assert tag in anki.notes[0]["tags"]
+
+
+@pytest.mark.parametrize(
+	"target,deck",
+	[("vocabulary", "French::Vocabulary"), ("grammar", "French::Grammar")],
+)
+def test_a_manual_card_lands_in_its_target_deck(settings, anki, tts, target, deck):
+	result = services.add_one(draft(kind="manual", deck_target=target), settings)
+	assert result.deck == deck
+	assert anki.notes[0]["deck_name"] == deck
 
 
 def test_a_noun_is_tagged_with_its_level_and_gender(settings, anki, tts):
@@ -376,7 +382,7 @@ def test_user_tags_are_split_cleaned_and_appended(settings, anki, tts):
 	)
 	tags = anki.notes[0]["tags"]
 	# After every derived tag, each once: the user's A2 is the level's A2.
-	assert tags[-2:] == ["food", "past_tense"]
+	assert tags[-2:] == ["food", "past-tense"]
 	assert tags.count("A2") == 1 and tags.count("food") == 1
 
 
@@ -486,7 +492,7 @@ def test_a_failed_audio_still_creates_the_card(settings, anki, monkeypatch):
 	result = services.add_one(draft(), settings)
 	assert result.audio.state == "error"
 	assert "elevenlabs down" in result.audio.detail
-	assert result.card.state == "ok"  # non-fatal, as it has always been
+	assert result.card.state == "ok"  # non-fatal
 	assert result.audio_url is None
 	assert anki.media == []  # nothing to store
 	assert anki.notes[0]["audio_filename"] is None
@@ -588,7 +594,7 @@ def test_dry_run_does_not_create_decks(settings, anki, tts):
 
 
 def test_a_real_run_does_create_decks(settings, anki, tts):
-	services.add_cards([draft(kind="manual")], settings)
+	services.add_cards([draft(kind="generated")], settings)
 	assert anki.decks == ["French::Vocabulary"]
 
 

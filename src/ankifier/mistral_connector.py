@@ -10,7 +10,6 @@ from ankifier.models import (
 	VALID_GENDERS,
 	VALID_LEVELS,
 	VALID_PARTS_OF_SPEECH,
-	Level,
 	PartOfSpeech,
 	Sense,
 	WordEntry,
@@ -19,7 +18,6 @@ from ankifier.settings import get_settings
 
 
 def init_client() -> Mistral:
-	"""Create and return a Mistral client using AI_KEY."""
 	settings = get_settings()
 	if not settings.ai_key:
 		raise ValueError("AI_KEY environment variable is not set")
@@ -36,11 +34,8 @@ def build_prompt(
 	max_senses: int = 3,
 	context: str | None = None,
 ) -> str:
-	"""Construct the user prompt for Mistral to generate senses and sentences.
-
-	max_senses=1 is the browser extension: one card, and -- when the page
-	sentence is known -- the sense the word has there, not its most common one.
-	"""
+	"""max_senses=1 is the browser extension: one card, with the sense the word has
+	in `context` when given, otherwise its most common one."""
 	word_desc = entry.raw
 	extra_context = ""
 
@@ -57,8 +52,8 @@ def build_prompt(
 			)
 		else:
 			which = " Provide exactly ONE sense: its most common meaning."
-		# The page sentence only picks the sense. Copying it would put a long,
-		# hard article sentence on the card instead of a simple one.
+		# The page sentence only picks the sense; copying it would put a long, hard
+		# sentence on the card.
 		return (
 			f'Given the {target_lang} word "{word_desc}",{extra_context}{which} '
 			"Write a NEW simple example sentence for it; do not reuse the sentence "
@@ -74,7 +69,6 @@ def build_prompt(
 	)
 
 
-# What people actually type in "promener (verb)", in English or French.
 _FUNCTION_ALIASES: dict[str, PartOfSpeech] = {
 	"n": "noun",
 	"noun": "noun",
@@ -91,36 +85,28 @@ _FUNCTION_ALIASES: dict[str, PartOfSpeech] = {
 }
 
 
+# I can override PoS tags with (v) or (n).
 def part_of_speech_from_function(function: str | None) -> PartOfSpeech | None:
-	"""The user's own "(verb)" annotation, if it names one of the four classes."""
 	return _FUNCTION_ALIASES.get((function or "").strip().lower())
 
 
 def clean_sense(s: dict) -> dict:
-	"""Strip markdown emphasis from a raw sense dict's string fields.
-
-	Models keep marking the target word as **this** despite the prompt telling
-	them not to, so remove the asterisks here instead. Must run before
-	_build_cloze: a starred hidden_text would otherwise fail to match the
-	sentence and hit the fallback path.
-	"""
+	"""Strip the **emphasis** models add despite the prompt. Must run before
+	_build_cloze, or a starred hidden_text will not match the sentence."""
 	return {k: v.replace("*", "") if isinstance(v, str) else v for k, v in s.items()}
 
 
 def _build_cloze(sentence: str, hidden_text: str, hint: str) -> str:
-	"""Replace the hidden_text in the sentence with Anki cloze format."""
-	# Case-insensitive search for the hidden text in the sentence
 	lower_sentence = sentence.lower()
 	lower_hidden = hidden_text.lower()
 	idx = lower_sentence.find(lower_hidden)
 
 	if idx != -1:
-		# Preserve original casing from the sentence
 		original = sentence[idx : idx + len(hidden_text)]
 		cloze = f"{{{{c1::{original}::{hint}}}}}"
 		return sentence[:idx] + cloze + sentence[idx + len(hidden_text) :]
 
-	# Fallback: if exact match not found, prepend cloze to sentence
+	# Not found in the sentence: prepend the cloze instead.
 	return f"{{{{c1::{hidden_text}::{hint}}}}} - {sentence}"
 
 
@@ -132,7 +118,6 @@ def query_senses(
 	max_senses: int = 3,
 	context: str | None = None,
 ) -> list[Sense]:
-	"""Query Mistral for senses and example sentences, returning Sense objects."""
 	system_prompt = (
 		f"You are a {target_lang} language learning assistant. "
 		f"You help create Anki flashcards for {target_lang} vocabulary. "
@@ -232,28 +217,21 @@ def query_senses(
 	content = response.choices[0].message.content
 	data = json.loads(content)
 
-	# Sliced rather than trusted: the prompt asks for at most max_senses, but
-	# nothing in strict json_schema mode enforces an array length, and a caller
-	# that asked for one card must get one.
-	# A part of speech the user wrote down beats the model's. It is the only
-	# source here that cannot be wrong about which word class they meant.
+	# The user's own annotation beats the model's part of speech.
 	user_pos = part_of_speech_from_function(entry.function)
 	senses = []
+	# Sliced because strict json_schema mode cannot enforce an array length.
 	for i, s in enumerate(data.get("senses", [])[:max_senses], start=1):
 		s = clean_sense(s)
 		sentence = s["sentence"]
 		hidden_text = s["hidden_text"]
 		hint = s["hint"]
 		cloze_sentence = _build_cloze(sentence, hidden_text, hint)
-		# The json_schema makes level required, but don't invent one if it is
-		# ever absent -- the UI shows a missing level rather than a guess.
 		level = s.get("level")
 		gender = s.get("gender")
 		pos = s.get("part_of_speech")
 		# "other" (a function word) and anything unexpected both become None.
 		part_of_speech = user_pos or (pos if pos in VALID_PARTS_OF_SPEECH else None)
-		# The two fields come from one answer but can still disagree. A verb
-		# tagged "feminine" is the worse error, so only a noun keeps a gender.
 		if part_of_speech != "noun":
 			gender = None
 
@@ -266,8 +244,7 @@ def query_senses(
 				hint=hint,
 				cloze_sentence=cloze_sentence,
 				translation=s["translation"],
-				level=Level(value=level) if level in VALID_LEVELS else None,
-				# "none" (not a noun) and anything unexpected both become None.
+				level=level if level in VALID_LEVELS else None,
 				gender=gender if gender in VALID_GENDERS else None,
 				part_of_speech=part_of_speech,
 			)
@@ -280,13 +257,8 @@ def query_senses(
 # "As is" mode: the user supplies the finished text, we only translate it.
 # ---------------------------------------------------------------------------
 
-# The marker syntax itself lives in ankifier.cloze, which the manual card
-# path also uses without making any API call. Re-exported here so existing
-# callers (and tests) keep working.
-
 
 def build_as_is_prompt(plain_text: str, parts: list[str], target_lang: str) -> str:
-	"""Construct the translate-only prompt for a single as-is text."""
 	prompt = (
 		f"Translate the following {target_lang} text into English. "
 		f"Do not rewrite, correct, expand or shorten it -- translate exactly what is given.\n\n"
@@ -351,14 +323,14 @@ def _align_part_hints(parts: list[str], returned: list[dict]) -> list[str]:
 
 
 def translate_as_is(client: Mistral, entry: WordEntry, target_lang: str) -> list[Sense]:
-	"""Translate an as-is text and cloze its -...- parts.
+	"""Translate an as-is text and cloze its [[...]] parts.
 
 	Returns a single-element list so callers can treat it like query_senses.
 	"""
 	raw = entry.raw
 	parts = extract_marked_parts(raw)
-	# plain_text is marker-free: it is all Mistral and ElevenLabs ever see, so
-	# the model cannot echo a marker back and the TTS never reads a hyphen.
+	# Mistral and ElevenLabs only ever see the marker-free text, so the model
+	# cannot echo a marker back.
 	plain_text, _ = render_as_is(raw, [])
 
 	system_prompt = (
@@ -404,7 +376,5 @@ def translate_as_is(client: Mistral, entry: WordEntry, target_lang: str) -> list
 			hint=" / ".join(h for h in part_hints if h),
 			cloze_sentence=cloze_sentence,
 			translation=translation,
-			# CEFR levels describe a word sense; an as-is text has none to report.
-			level=None,
 		)
 	]

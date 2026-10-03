@@ -1,12 +1,10 @@
 """Generation and card creation, with no HTTP in sight.
 
-Everything here is plain synchronous code -- the route handlers are `def`, so
-FastAPI runs them in a threadpool and the blocking SDK calls never touch the
-event loop. Both loops are serial, exactly as web.py ran them.
+Plain synchronous code: the route handlers are `def`, so FastAPI runs them in a
+threadpool and the blocking SDK calls never touch the event loop.
 
-add_one() is deliberately per-card and stateless: it knows nothing about the
-batch it is part of. That is what makes running the loop concurrently, or
-streaming each result as it lands, a later change to add_cards() alone.
+add_one() knows nothing about the batch it is part of, so making the loop
+concurrent or streaming results only means changing add_cards().
 """
 
 from functools import lru_cache
@@ -39,17 +37,14 @@ from ankifier.settings import Settings
 
 
 class PreflightError(Exception):
-	"""Something is wrong that would fail every card in the batch identically.
+	"""Something that would fail every card in the batch identically.
 
-	Raised before any side effect so the caller can return a real HTTP status
-	instead of a list of identical per-card errors.
+	Raised before any side effect, so the caller can return a real HTTP status.
 	"""
 
 
 # ---------------------------------------------------------------------------
-# Clients. Built once rather than per request: init_elevenlabs() raises when the
-# key is missing, and web.py called it inside the add handler, so a missing key
-# turned into a 500 for the whole batch instead of a message.
+# Clients
 # ---------------------------------------------------------------------------
 @lru_cache
 def _mistral_client():
@@ -65,7 +60,6 @@ def _elevenlabs_client():
 # Cloze preview
 # ---------------------------------------------------------------------------
 def render_cloze(texts: list[ClozeText]) -> list[ClozeResult]:
-	"""Pure string work -- no I/O, no client, no threadpool needed."""
 	results = []
 	for t in texts:
 		plain, cloze_text = cloze.render(t.text, inline_hints=t.inline_hints)
@@ -80,11 +74,8 @@ def manual_draft(
 	use_cloze: bool,
 	audio_side: AudioSide = "front",
 ) -> CardDraft:
-	"""Build a manual card without calling anything.
-
-	The client normally builds these itself from /api/cloze/preview; this exists
-	so the same construction is available server-side and tested in one place.
-	"""
+	"""The client normally builds these itself from /api/cloze/preview; this keeps
+	the same construction available server-side and tested in one place."""
 	if use_cloze:
 		plain, cloze_text = cloze.render_manual(front)
 	else:
@@ -112,11 +103,7 @@ def manual_draft(
 def generate_batch(
 	rows: list[GenerateRow], settings: Settings
 ) -> tuple[list[CardDraft], list[GenerateError]]:
-	"""Ask Mistral for senses, one row at a time.
-
-	Serial, as it has always been: ~2s per row. A row that fails does not stop
-	the batch, it becomes a GenerateError.
-	"""
+	"""A row that fails does not stop the batch; it becomes a GenerateError."""
 	client = _mistral_client()
 	cards: list[CardDraft] = []
 	errors: list[GenerateError] = []
@@ -126,8 +113,6 @@ def generate_batch(
 		entry = parse_line(row.text, as_is=as_is)
 		try:
 			if as_is:
-				# "As is" skips sense generation entirely: the text is already the
-				# card, so the model is only asked for its translation.
 				senses = mistral_connector.translate_as_is(
 					client, entry, settings.target_lang
 				)
@@ -158,8 +143,6 @@ def generate_batch(
 		for n, sense in enumerate(senses, start=1):
 			cards.append(
 				CardDraft(
-					# One row can fan out into several cards, so the row's id
-					# alone is not unique.
 					id=f"{row.source_id}#{n}",
 					source_id=row.source_id,
 					kind=row.kind,
@@ -171,7 +154,7 @@ def generate_batch(
 					hidden_text=sense.hidden_text,
 					hint=sense.hint,
 					translation=sense.translation,
-					level=sense.level.value if sense.level else None,
+					level=sense.level,
 					gender=sense.gender,
 					part_of_speech=sense.part_of_speech,
 				)
@@ -186,13 +169,10 @@ def generate_batch(
 def spoken_text(card: CardDraft) -> tuple[str, str | None]:
 	"""The text ElevenLabs reads for this card, and the stem that names its file.
 
-	Where the sound tag ends up is not a decision this makes: add_cloze_note and
-	add_basic_note both put it on the note's back field, so it plays on reveal
-	whichever side is read.
+	This does not decide where the sound tag goes: it is always on the back field.
 	"""
 	if card.audio_side == "back":
-		# Not card.word -- that is the front, and naming the file after it would
-		# describe audio the file does not contain.
+		# Not card.word: that is the front, which this audio does not contain.
 		return card.translation, card.audio_stem
 	return card.sentence, card.audio_stem or card.word
 
@@ -207,7 +187,6 @@ def audio_url(filename: str) -> str:
 
 
 def synthesize(text: str, stem: str | None, settings: Settings) -> Path:
-	"""Generate (or reuse) the audio for `text` and return its path."""
 	settings.audio_root.mkdir(parents=True, exist_ok=True)
 	path = audio_path(text, stem, settings)
 	tts(_elevenlabs_client(), text, path)
@@ -220,11 +199,6 @@ def synthesize(text: str, stem: str | None, settings: Settings) -> Path:
 def preflight(
 	cards: list[CardDraft], settings: Settings, *, dry_run: bool = False
 ) -> None:
-	"""Check everything that would fail every card in the batch the same way.
-
-	Runs before the first side effect, so the caller can still return a status
-	code rather than a list of identical errors.
-	"""
 	if not cards:
 		raise PreflightError("No cards to add")
 	if not settings.eleven_labs_key:
@@ -233,8 +207,7 @@ def preflight(
 		raise PreflightError("Anki is not reachable -- is it running with AnkiConnect?")
 
 	if dry_run:
-		# createDeck writes to the collection, so a dry run stops here: it must
-		# leave the user's Anki exactly as it found it.
+		# createDeck writes to the collection, which a dry run must not touch.
 		return
 
 	try:
@@ -242,65 +215,47 @@ def preflight(
 	except OSError as e:
 		raise PreflightError(f"Audio directory is not writable: {e}") from e
 
-	# Only the decks this batch actually needs.
 	for deck in {settings.deck_for(c.kind, c.deck_target) for c in cards}:
 		ensure_deck(deck)
 
 
 def parse_tags(text: str) -> list[str]:
-	"""Split the user's "past tense, food" into Anki tags.
-
-	Anki separates tags with spaces, so a space inside one would quietly make
-	two: "past tense" becomes past_tense instead.
-	"""
-	tags = ("_".join(part.split()) for part in text.split(","))
+	"""Anki separates tags with spaces, so "past tense, food" becomes
+	["past-tense", "food"] rather than three tags."""
+	tags = ("-".join(part.split()) for part in text.split(","))
 	return list(dict.fromkeys(t for t in tags if t))
 
 
 def note_tags(card: CardDraft, settings: Settings) -> list[str]:
 	"""The derived tags -- kind, CEFR level, part of speech, a noun's gender --
 	then the user's own."""
-	# A missing value is simply no tag. There used to be an "unknown-level"
-	# tag, but nobody searches for it: a card without a level tag already is
-	# one, and none of these has an "unknown-*" counterpart.
 	tags = settings.tags_for(card.kind)
 	if card.level:
 		tags.append(card.level)
-	# A function word has no part of speech, which is not the same as unknown.
 	if card.part_of_speech:
 		tags.append(card.part_of_speech)
 	if card.gender:
 		tags.append(card.gender)
-	# Appended, never substituted: a user tag can add to the derived ones but
-	# not remove them. Duplicates of a derived tag are dropped.
+	# A user tag can add to the derived ones but not remove them.
 	return list(dict.fromkeys([*tags, *parse_tags(card.extra_tags)]))
 
 
 def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:
-	"""Audio, then the note, for one card.
-
-	Per-card and stateless by design. A failed audio is not fatal -- the card is
-	still created, silently, exactly as before.
-	"""
-	deck = settings.deck_for(card.kind)
+	deck = settings.deck_for(card.kind, card.deck_target)
 	text, stem = spoken_text(card)
 	filename = audio_filename(text, stem)
 	path = settings.audio_root / filename
 	note_type = "Cloze" if "{{c" in card.cloze_sentence else "Basic"
 
-	# A card set to read a side that is empty has nothing to say. audio_filename
-	# still returns a name for it, and sending "" to ElevenLabs is an error, so
-	# the audio is skipped rather than attempted -- the card is still made.
+	# ElevenLabs rejects "", so an empty side skips the audio but keeps the card.
 	nothing_to_read = Status(
 		state="skipped", detail=f"nothing to read -- the {card.audio_side} is empty"
 	)
 	speakable = bool(text.strip())
 
 	if dry_run:
-		# Everything derived, nothing spent and nothing written: the deck, the
-		# filename and the note type are the things most likely to be wrong,
-		# and all three are settled by this point. TTS is skipped too, so a dry
-		# run costs no ElevenLabs credits either.
+		# The deck, filename and note type are all settled by now, and they are
+		# what a dry run is for checking. No credits spent, nothing written.
 		return AddResult(
 			id=card.id,
 			audio=(
@@ -337,8 +292,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				tags=note_tags(card, settings),
 			)
 		else:
-			# Nothing to hide -- an as-is text with no [[...]] markers. Anki
-			# rejects a Cloze note with zero deletions, so it becomes a Basic.
+			# Anki rejects a Cloze note with zero deletions.
 			add_basic_note(
 				deck_name=deck,
 				front=card.sentence,

@@ -1,9 +1,5 @@
-"""Prompt construction and response parsing, with the Mistral client faked.
-
-No network: FakeClient stands in for client.chat.complete and records the
-messages it was sent, so the prompt the model would have seen can be asserted
-on directly.
-"""
+"""FakeClient stands in for client.chat.complete and records the messages it was
+sent, so the prompts can be asserted on directly."""
 
 import json
 from types import SimpleNamespace
@@ -42,7 +38,6 @@ def raw_sense(n, gender="feminine", part_of_speech="noun"):
 
 
 def test_the_three_sense_prompt_is_unchanged():
-	"""The web table's prompt is what it was before max_senses existed."""
 	assert build_prompt(entry(), "French") == (
 		'Given the French word "glace", provide UP TO 3 '
 		"(can be less) of its most common distinct senses. If senses are similar, "

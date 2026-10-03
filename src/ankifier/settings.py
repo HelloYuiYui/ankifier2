@@ -1,10 +1,5 @@
-"""Every tunable in one place.
-
-Replaces the scattered os.environ.get calls that used to sit at each call site
-(and, in anki_connector, at import time -- so the URL could not be changed once
-the process had started). Field names map to the same upper-case environment
-variables the app has always used, so existing .env files keep working.
-"""
+"""Every tunable in one place. Each field reads the upper-case environment
+variable of the same name, or .env."""
 
 from functools import lru_cache
 from pathlib import Path
@@ -22,15 +17,11 @@ class Settings(BaseSettings):
 	)
 
 	# --- credentials -------------------------------------------------------
-	# Empty rather than required: the app must start without them so that
-	# /api/health can report what is missing instead of failing to boot.
 	ai_key: str = ""
 	eleven_labs_key: str = ""
 
 	# --- AnkiConnect -------------------------------------------------------
 	ankiconnect_url: str = "http://localhost:8765"
-	# (connect, read). Anki is on localhost so connecting is instant or never;
-	# a read can legitimately take a while when the collection is large.
 	anki_connect_timeout: float = 3.0
 	anki_read_timeout: float = 30.0
 
@@ -38,8 +29,8 @@ class Settings(BaseSettings):
 	anki_deck: str = "French::Vocabulary"
 	anki_asis_deck: str = "French::Grammar"
 	anki_manual_deck: str = "French::Grammar"
-	# Comma-separated. Kept a plain string because pydantic-settings parses a
-	# list-typed field as JSON, which would reject the ANKI_TAGS=a,b form.
+	# Comma-separated. A plain string because pydantic-settings parses list
+	# fields as JSON, which would reject ANKI_TAGS=a,b.
 	anki_tags: str = "ankifier"
 
 	# --- generation --------------------------------------------------------
@@ -58,9 +49,8 @@ class Settings(BaseSettings):
 	host: str = "127.0.0.1"
 	port: int = 8000
 	reload: bool = False
-	# Comma-separated; empty means same-origin only and no CORS middleware at
-	# all. This server writes to the user's Anki collection and spends API
-	# credits, so it is never opened up by default.
+	# Comma-separated; empty means no CORS middleware at all. Closed by default
+	# because this server writes to Anki and spends API credits.
 	cors_origins: str = ""
 
 	# --- derived -----------------------------------------------------------
@@ -74,12 +64,9 @@ class Settings(BaseSettings):
 
 	@property
 	def audio_root(self) -> Path:
-		"""The audio directory, resolved.
-
-		Resolved rather than raw because it is the containment root for
-		/api/audio/{filename}: on macOS a configured "/tmp" resolves to
-		"/private/tmp", and an unresolved root would fail every comparison.
-		"""
+		"""Resolved because it is the containment root for /api/audio/{filename}:
+		on macOS "/tmp" resolves to "/private/tmp", and an unresolved root would
+		fail every comparison."""
 		return self.audio_dir.resolve()
 
 	@property
@@ -87,13 +74,8 @@ class Settings(BaseSettings):
 		return (self.anki_connect_timeout, self.anki_read_timeout)
 
 	def deck_for(self, kind: Kind, target: str | None = None) -> str:
-		"""The deck a card of this kind belongs in.
-
-		As-is texts are hand-written grammar material and manual pairs are
-		written end to end by hand, so neither belongs in the generated
-		vocabulary deck. A manual card may instead pick the vocabulary or the
-		grammar deck by name; other kinds ignore `target`.
-		"""
+		"""A manual card may pick the vocabulary or grammar deck; other kinds ignore
+		`target`."""
 		if kind == "manual" and target in ("vocabulary", "grammar"):
 			return self.anki_deck if target == "vocabulary" else self.anki_asis_deck
 		return {
@@ -102,7 +84,7 @@ class Settings(BaseSettings):
 		}.get(kind, self.anki_deck)
 
 	def tags_for(self, kind: Kind) -> list[str]:
-		"""Base tags, plus a marker tag so each kind can be found separately."""
+		"""Base tags, plus a tag marking the kind so each can be searched for."""
 		tags = list(self.tags)
 		extra = {"as_is": "as-is", "manual": "manual"}.get(kind)
 		if extra and extra not in tags:

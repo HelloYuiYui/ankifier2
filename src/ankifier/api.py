@@ -1,12 +1,10 @@
 """The HTTP layer: schema in, service call, schema out.
 
-There is no session, no cookie and no server-side batch. The client holds its
-cards between generating and adding and posts back the ones it kept, which is
-why every route here is independent of every other.
+Stateless: the client holds its cards and posts back the ones it kept, so every
+route is independent.
 
-Handlers are plain `def`, not `async def`. Every connector is blocking, so an
-`async def` handler would pin the event loop for the length of a batch; a `def`
-handler is run in a threadpool by FastAPI instead.
+Handlers are plain `def`: the connectors block, and FastAPI runs a `def` handler
+in a threadpool instead of pinning the event loop.
 """
 
 from pathlib import Path
@@ -32,13 +30,11 @@ from ankifier.schemas import (
 )
 from ankifier.settings import Settings, get_settings
 
-# Note: no load_dotenv() here. Settings reads .env itself, and calling
-# load_dotenv() as well would copy every secret into os.environ for the life of
-# the process -- where anything that dumps the environment can print it.
+# No load_dotenv(): Settings reads .env itself, and load_dotenv() would copy every
+# secret into os.environ, where anything that dumps the environment can print it.
 app = FastAPI(title="Ankifier", version="0.2.0")
 
-# The SPA build. Vite writes here (build.outDir), so it is absent on a fresh
-# clone until `pnpm build` has run.
+# The SPA build (Vite's outDir); absent until `pnpm build` has run.
 DIST = Path(__file__).parent / "static"
 
 
@@ -48,9 +44,8 @@ def settings_dep() -> Settings:
 
 _settings = get_settings()
 if _settings.cors_origin_list:
-	# Only when explicitly configured. This server writes to the user's Anki
-	# collection and spends API credits, so it is never opened by default -- a
-	# wildcard here would make it reachable from any page they have open.
+	# Never a wildcard: this server writes to Anki and spends credits, so it
+	# would be reachable from any page the user has open.
 	from fastapi.middleware.cors import CORSMiddleware
 
 	app.add_middleware(
@@ -66,8 +61,7 @@ if _settings.cors_origin_list:
 # ---------------------------------------------------------------------------
 @app.get("/api/health", response_model=HealthResponse)
 def health(settings: Settings = Depends(settings_dep)) -> HealthResponse:
-	"""One call at boot. Also the place a missing key surfaces, rather than as a
-	500 in the middle of a batch."""
+	"""Where a missing key surfaces, rather than as a 500 mid-batch."""
 	version, error = None, None
 	try:
 		version = anki_connector.get_version()
@@ -112,11 +106,7 @@ def decks() -> list[str]:
 # ---------------------------------------------------------------------------
 @app.post("/api/cloze/preview", response_model=ClozePreviewResponse)
 def cloze_preview(req: ClozePreviewRequest) -> ClozePreviewResponse:
-	"""Marker -> cloze, for the live preview as the user types.
-
-	Batched so a whole table is one request. Pure string work, so this is the
-	one route with no I/O at all.
-	"""
+	"""Marker -> cloze, for the live preview as the user types."""
 	return ClozePreviewResponse(results=services.render_cloze(req.texts))
 
 
@@ -144,12 +134,6 @@ def generate(
 def add_cards(
 	req: AddRequest, settings: Settings = Depends(settings_dep)
 ) -> AddResponse:
-	"""Audio and notes for the cards the client kept.
-
-	Anything that would fail every card identically (Anki down, key missing)
-	raises here, before the first side effect, so the client gets a status code
-	rather than a list of identical per-card errors.
-	"""
 	try:
 		results = services.add_cards(req.cards, settings, dry_run=req.dry_run)
 	except services.PreflightError as e:
@@ -164,12 +148,6 @@ def add_cards(
 def audio_preview(
 	req: AudioPreviewRequest, settings: Settings = Depends(settings_dep)
 ) -> AudioPreviewResponse:
-	"""Generate (or reuse) the audio for one text.
-
-	Cheap to call twice: the path is content-addressed, so a second request for
-	the same text returns the existing file and spends nothing -- and a later
-	add finds that same file and skips generating it again.
-	"""
 	if not settings.eleven_labs_key:
 		raise HTTPException(503, "ELEVEN_LABS_KEY is not set")
 	try:
@@ -182,8 +160,8 @@ def audio_preview(
 @app.get("/api/audio/{filename}")
 def audio(filename: str, settings: Settings = Depends(settings_dep)) -> FileResponse:
 	root = settings.audio_root
-	# Never os.path.join a user string onto a root -- an absolute second
-	# argument wins. Resolve and prove containment instead.
+	# Resolve and prove containment: joining an absolute path onto a root
+	# discards the root.
 	target = (root / filename).resolve()
 	if not target.is_relative_to(root) or not target.is_file():
 		raise HTTPException(404, "No such audio file")
@@ -197,9 +175,7 @@ def audio(filename: str, settings: Settings = Depends(settings_dep)) -> FileResp
 # catch-all below matches everything, so anything added after it is dead.
 # ---------------------------------------------------------------------------
 if DIST.is_dir():
-	# StaticFiles raises at import time if the directory is missing, which would
-	# stop the app (and every test that imports it) from starting on a fresh
-	# clone -- hence the guard.
+	# StaticFiles raises at import time if the directory is missing.
 	app.mount("/assets", StaticFiles(directory=DIST / "assets"), name="assets")
 
 	@app.get("/{full_path:path}", include_in_schema=False)
@@ -207,8 +183,7 @@ if DIST.is_dir():
 		# StaticFiles(html=True) only falls back for *directory* paths, so a
 		# client-side route like /review would 404 without this.
 		if full_path.startswith("api/"):
-			# Otherwise a mistyped endpoint returns index.html with status 200
-			# and the client's res.json() throws "Unexpected token <".
+			# Otherwise a mistyped endpoint returns index.html with a 200.
 			raise HTTPException(404, "No such endpoint")
 		candidate = DIST / full_path
 		if full_path and candidate.is_file():
@@ -224,8 +199,7 @@ def run() -> None:
 		"ankifier.api:app",
 		host=settings.host,
 		port=settings.port,
-		# Off by default: a file save mid-batch used to kill in-flight Anki
-		# adds. Vite handles the frontend's hot reload on its own.
+		# Off by default: a reload mid-batch kills in-flight Anki adds.
 		reload=settings.reload,
 	)
 

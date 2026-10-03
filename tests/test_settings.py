@@ -1,12 +1,5 @@
-"""Tests for settings.py.
-
-The deck and tag mappings are pinned against the behaviour of web.py's
-_deck_for / _tags_for, which they replace -- a card must land in exactly the
-deck it used to.
-
-Every Settings here is built with _env_file=None so the developer's own .env
-cannot change the result.
-"""
+"""Every Settings here is built with _env_file=None so the developer's own .env
+cannot change the result."""
 
 import pytest
 
@@ -18,14 +11,13 @@ def settings(**overrides) -> Settings:
 
 
 # ---------------------------------------------------------------------------
-# Decks and tags -- pinned against web.py's _deck_for / _tags_for
+# Decks and tags
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
 	"kind,expected",
 	[
 		("generated", "French::Vocabulary"),
 		("as_is", "French::Grammar"),
-		("manual", "French::Vocabulary"),
 	],
 )
 def test_deck_for_defaults(kind, expected):
@@ -50,7 +42,6 @@ def test_deck_for_honours_overrides():
 	[
 		("vocabulary", "French::Vocabulary"),
 		("grammar", "French::Grammar"),
-		(None, "French::Vocabulary"),
 	],
 )
 def test_deck_for_manual_honours_the_target(target, expected):
@@ -129,8 +120,7 @@ def test_cors_splitting():
 # Paths and timeouts
 # ---------------------------------------------------------------------------
 def test_audio_root_is_absolute():
-	"""It is the containment root for /api/audio/{filename}, so it must be
-	resolved -- an unresolved root fails every comparison on macOS."""
+	"""The containment root for /api/audio/{filename} must be resolved."""
 	root = settings(audio_dir="audio").audio_root
 	assert root.is_absolute()
 	assert root.name == "audio"
@@ -142,8 +132,7 @@ def test_anki_timeout_is_a_connect_read_pair():
 
 
 def test_credentials_default_to_empty_so_the_app_can_still_boot():
-	"""/api/health has to be able to report a missing key, which means the
-	process must start without one."""
+	"""/api/health must be able to report a missing key."""
 	s = settings()
 	assert s.ai_key == ""
 	assert s.eleven_labs_key == ""
