@@ -1,11 +1,8 @@
-"""The wire contract.
+"""The wire contract: snake_case in Python, camelCase on the wire. Models accept
+either spelling on input and emit camelCase.
 
-snake_case in Python, camelCase on the wire. Every model accepts either spelling
-on input and emits camelCase, so the TypeScript client sees idiomatic JSON and
-the Python side stays idiomatic Python.
-
-web/src/api/types.ts mirrors this file by hand. When a model here changes, that
-file changes with it -- /docs is the place to check the two still agree.
+packages/api/src/types.ts mirrors this file by hand and must change with it;
+check /docs to confirm the two still agree.
 """
 
 from typing import Literal
@@ -15,18 +12,15 @@ from pydantic.alias_generators import to_camel
 
 from ankifier.models import CEFRLevel, Gender, PartOfSpeech
 
-# What a card is and where it came from. The three kinds differ only in which
-# deck and tags they get -- by the time a card is added, nothing else about them
-# is distinguishable. Keep it that way.
+# The kinds differ only in which deck and tags they get. Keep it that way.
 Kind = Literal["generated", "as_is", "manual"]
 
 # "skipped" is a non-failure: an existing duplicate, or work not done because
 # dry_run was set.
 State = Literal["ok", "skipped", "error"]
 
-# Which of a card's two texts ElevenLabs reads. It does not move the sound tag:
-# that goes on the note's back field either way, so audio never plays before the
-# card is turned over -- this only decides what is heard once it is.
+# Which text ElevenLabs reads. The sound tag goes on the back field either way,
+# so audio never plays before the card is turned over.
 AudioSide = Literal["front", "back"]
 
 
@@ -38,30 +32,24 @@ class Base(BaseModel):
 # Cards
 # ---------------------------------------------------------------------------
 class CardDraft(Base):
-	"""One prospective Anki note.
+	"""One prospective Anki note: the response of /api/generate and the request
+	of /api/cards/add, since the server keeps no batch state.
 
-	The client holds these between generating and adding -- the server keeps no
-	batch state -- so this is both the response body of /api/generate and the
-	request body of /api/cards/add.
-
-	Note what is NOT here: deck, tags and audio filename. Those are derived
-	server-side from `kind` and from the text, so a client cannot create a stray
-	deck and cannot make two cards collide on one audio file. `extra_tags` only
-	adds to the derived tags; it cannot remove or replace them.
+	Deck, tags and audio filename are deliberately absent: they are derived
+	server-side, so a client cannot create a stray deck or make two cards collide
+	on one audio file. `extra_tags` can only add to the derived tags.
 	"""
 
-	# f"{source_id}#{n}". Deterministic, so regenerating one input row produces
-	# the same ids rather than orphaning the user's keep/discard choices.
+	# f"{source_id}#{n}". Deterministic, so regenerating a row keeps the user's
+	# keep/discard choices attached.
 	id: str
-	# One per input line. A line can fan out into several senses, so this is not
-	# unique across a batch.
+	# One per input line; not unique, since a line can fan out into several senses.
 	source_id: str
 	kind: Kind
 
 	# The input line (or the manual front), for display only.
 	word: str
-	# Display ordinal within a source line. Carries no identity -- it used to
-	# also name the audio file and flag errors, and it does neither now.
+	# Display ordinal within a source line; carries no identity.
 	sense_number: int = 1
 	sense_description: str = ""
 
@@ -76,20 +64,17 @@ class CardDraft(Base):
 	# sentence as it was generated and go stale the moment it is edited.
 	hidden_text: str = ""
 	hint: str = ""
-	level: CEFRLevel | None = None
-	# Nouns only; also becomes a tag on the note, as the level does.
-	gender: Gender | None = None
-	# Noun/verb/adjective/adverb only; also a tag. None for function words.
-	part_of_speech: PartOfSpeech | None = None
 
-	# The user's own tags, as typed: comma-separated text, not a list. The UIs
-	# store each keystroke, and a list would eat a comma the moment it was typed.
-	# note_tags() splits and cleans it, so both clients share one parser.
+	# Optional metadata, which becomes tags.
+	level: CEFRLevel | None = None
+	gender: Gender | None = None
+	part_of_speech: PartOfSpeech | None = None
+	# Comma-separated text as typed, not a list: the UIs store each keystroke, and
+	# a list would eat a comma the moment it was typed. Parsed by parse_tags().
 	extra_tags: str = Field("", max_length=500)
 
-	# Read the front (`sentence`) or the back (`translation`) aloud. A card whose
-	# front is a prompt to produce from memory -- a subjunctive form, say --
-	# wants the back: hearing the front would hand over the answer.
+	# "back" reads `translation` instead of `sentence`: for a card whose front is a
+	# prompt to recall (a subjunctive form, say), hearing it would give the answer.
 	audio_side: AudioSide = "front"
 
 	# Names the audio file when the spoken text is unwieldy (an as-is card's
@@ -107,8 +92,7 @@ class AddResult(Base):
 	audio: Status
 	card: Status
 	deck: str
-	# Fully-formed and pre-encoded -- these names contain accented characters,
-	# so the client must treat it as opaque and never rebuild it.
+	# Pre-encoded (the names contain accented characters); treat as opaque.
 	audio_url: str | None = None
 
 
@@ -132,12 +116,8 @@ class GenerateRequest(Base):
 
 
 class GenerateError(Base):
-	"""A row that produced no cards.
-
-	Kept apart from `cards` rather than being a card with an error on it: an
-	error row used to stay selectable, and adding one sent an empty string to
-	ElevenLabs and an empty note to Anki.
-	"""
+	"""A row that produced no cards. Kept apart from `cards` so it can never be
+	selected and added as an empty note."""
 
 	source_id: str
 	text: str
@@ -161,8 +141,6 @@ class ClozeText(Base):
 
 
 class ClozePreviewRequest(Base):
-	"""Batched: a table of 60 rows is one request, not 60."""
-
 	texts: list[ClozeText]
 
 
@@ -181,8 +159,7 @@ class ClozePreviewResponse(Base):
 # ---------------------------------------------------------------------------
 class AddRequest(Base):
 	cards: list[CardDraft]
-	# Runs everything except storeMediaFile and addNote. The whole path, no
-	# side effects.
+	# Derives everything, but skips TTS, deck creation and note writes.
 	dry_run: bool = False
 
 

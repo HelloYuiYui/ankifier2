@@ -8,7 +8,6 @@ from ankifier.settings import get_settings
 
 
 def init_client() -> ElevenLabs:
-	"""Create and return an ElevenLabs client using ELEVEN_LABS_KEY."""
 	settings = get_settings()
 	if not settings.eleven_labs_key:
 		raise ValueError("ELEVEN_LABS_KEY environment variable is not set")
@@ -18,7 +17,6 @@ def init_client() -> ElevenLabs:
 
 
 def sanitize_filename(text: str) -> str:
-	"""Sanitize a string for use as a filename."""
 	text = text.lower().strip()
 	text = re.sub(r"[^\w\s-]", "", text)
 	text = re.sub(r"[\s]+", "_", text)
@@ -28,24 +26,15 @@ def sanitize_filename(text: str) -> str:
 def audio_filename(text: str, stem: str | None = None) -> str:
 	"""Content-addressed filename for the audio of `text`.
 
-	The name has to be derived from the spoken text, not from the word or the
-	sense number. Those do not change when a sentence is edited, so a name built
-	from them collides with the file of a card already in the collection -- and
-	store_media_file would then silently replace that card's audio. Hashing the
-	text (with the voice and model, since either changes the audio) means the
-	same text always maps to the same file and different text never collides.
-
-	The readable part is for finding a file by eye; it carries no identity.
-	There used to be an "ankifier_" prefix too, to tell this tool's media from
-	other decks'. Dropped because all the audio in the collection comes from
-	here, so it marked nothing. Files already in Anki keep the old names.
+	Hashed from the spoken text (plus voice and model, which change the audio), so
+	the same text reuses one file and an edited sentence never overwrites another
+	card's audio in Anki. The readable part is only for finding a file by eye.
 	"""
 	settings = get_settings()
 	digest = hashlib.sha1(
 		f"{settings.elevenlabs_voice_id}|{settings.elevenlabs_model}|{text}".encode()
 	).hexdigest()[:10]
-	# sanitize_filename returns "" for all-punctuation input, which would leave
-	# a name starting with an underscore -- with no prefix, a bare "_<hash>".
+	# sanitize_filename returns "" for all-punctuation input.
 	safe = sanitize_filename(stem or text)[:40] or "card"
 	return f"{safe}_{digest}.mp3"
 
@@ -59,14 +48,11 @@ def generate_audio(
 ) -> str:
 	"""Generate TTS audio for `text` and save it to output_path.
 
-	Because the path is content-addressed, a file that is already there holds
-	exactly the audio this call would produce, so the default is to keep it and
-	spend no credits. That is what makes previewing a row at review time free in
-	aggregate: the later add finds the preview's file and reuses it.
+	The path is content-addressed, so an existing file is already this audio and
+	is reused for free (a preview's file is reused by the later add).
 
-	The download goes to a .part file and is renamed once complete, so an
-	interrupted run can never leave a truncated mp3 that a later call would
-	mistake for a finished one.
+	Downloads to a .part file renamed once complete, so an interrupted run never
+	leaves a truncated mp3 that would later be mistaken for a finished one.
 	"""
 	settings = get_settings()
 	path = Path(output_path)

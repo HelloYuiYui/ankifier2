@@ -64,7 +64,7 @@ tests/                  pytest; every connector is faked (no network, no credits
   It can't remove a derived tag.
 - **Changing `schemas.py` means changing `packages/api/src/types.ts` in the same change.**
   No codegen. Check `/docs`.
-- **Audio is content-addressed:** `{readable}_{hash}.mp3` (no prefix since Oct 2026; old files keep `ankifier_`), so identical text
+- **Audio is content-addressed:** `{readable}_{hash}.mp3`, so identical text
   reuses the file. The `[sound:...]` tag always goes on the note's **back** field.
   `audio_side` only decides *what* is read (sentence vs translation).
 - **Hints are never read aloud.** `cloze.render` returns `(plain, cloze)`, and only
@@ -98,7 +98,7 @@ Empty hint -> no `::`. Stray `[[`/`]]` are stripped. All of this lives in `cloze
 + `noun`/`verb`/`adjective`/`adverb` + `masculine`/`feminine` for nouns. A missing value is no
 tag at all (no `unknown-*`): no level, a function word, a non-noun. A
 `(verb)`-style annotation in the input overrides Mistral's part of speech; only a noun keeps a gender.
-Then the user's `extra_tags` (spaces inside a tag become `_`, duplicates dropped).
+Then the user's `extra_tags` (spaces inside a tag become `-`, duplicates dropped).
 
 ## Commands
 
@@ -120,7 +120,9 @@ CI (`.github/workflows/ci.yaml`) runs all of the above.
 - **Tabs** everywhere (Python via `ruff format` indent-style=tab, Prettier for web),
   except YAML. Line length 88. One `.prettierrc.json` at the root, but a `.prettierignore`
   per package (Prettier reads that one only from the cwd).
-- Comments explain *why* (history, the bug being avoided). Match that style and density.
+- Comments are sparse and explain *why* when the code can't: a constraint, a non-obvious
+  choice. No history or changelog ("used to", "since X"), and no docstrings that
+  restate a self-explanatory function.
 - `get_settings()` is `lru_cache`d. Tests clear it via the autouse fixture in
   `tests/conftest.py`. Add any new env var to `_ANKIFIER_ENV` there.
 - Mistral prompt strings: their whitespace is sent to the model, so don't rewrap them.
