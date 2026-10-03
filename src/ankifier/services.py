@@ -260,12 +260,15 @@ def parse_tags(text: str) -> list[str]:
 def note_tags(card: CardDraft, settings: Settings) -> list[str]:
 	"""The derived tags -- kind, CEFR level, part of speech, a noun's gender --
 	then the user's own."""
-	tags = [*settings.tags_for(card.kind), card.level or "unknown-level"]
-	# Likewise no "unknown-pos": a function word has none, which is not unknown.
+	# A missing value is simply no tag. There used to be an "unknown-level"
+	# tag, but nobody searches for it: a card without a level tag already is
+	# one, and none of these has an "unknown-*" counterpart.
+	tags = settings.tags_for(card.kind)
+	if card.level:
+		tags.append(card.level)
+	# A function word has no part of speech, which is not the same as unknown.
 	if card.part_of_speech:
 		tags.append(card.part_of_speech)
-	# No "unknown-gender" counterpart: most cards are not nouns, and tagging
-	# every verb with it would bury the tag that means something.
 	if card.gender:
 		tags.append(card.gender)
 	# Appended, never substituted: a user tag can add to the derived ones but

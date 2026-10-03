@@ -394,11 +394,18 @@ def test_a_function_word_gets_no_part_of_speech_tag(settings, anki, tts):
 
 def test_a_card_with_no_gender_gets_no_gender_tag(settings, anki, tts):
 	"""Not an "unknown-gender" tag: most words are not nouns."""
-	services.add_one(draft(level=None), settings)
+	services.add_one(draft(), settings)
 	tags = anki.notes[0]["tags"]
-	assert "unknown-level" in tags
 	assert not {"masculine", "feminine"} & set(tags)
 	assert not any("gender" in t for t in tags)
+
+
+def test_a_card_with_no_level_gets_no_level_tag(settings, anki, tts):
+	"""No "unknown-level" either: an untagged card already says that."""
+	services.add_one(draft(level=None), settings)
+	tags = anki.notes[0]["tags"]
+	assert tags == settings.tags_for("generated")
+	assert not any("unknown" in t for t in tags)
 
 
 def test_a_cloze_sentence_becomes_a_cloze_note(settings, anki, tts):
