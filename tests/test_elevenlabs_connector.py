@@ -1,9 +1,7 @@
-"""Tests for the audio filename scheme and the download's crash-safety.
+"""The audio filename scheme and the download's crash-safety.
 
-The old scheme was f"{sanitize_filename(stem)[:60]}_{sense_number}.mp3", which
-collided across batches -- and because store_media_file pushes the name to Anki,
-a collision silently replaced the audio of a card already in the collection.
-These tests pin the properties that fix means.
+store_media_file overwrites by name, so a filename collision would silently
+replace the audio of a card already in Anki.
 """
 
 import re
@@ -27,7 +25,7 @@ def isolated_settings(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# sanitize_filename -- unchanged behaviour, pinned
+# sanitize_filename
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
 	"raw,expected",
@@ -57,8 +55,7 @@ def test_different_text_gives_a_different_name():
 
 
 def test_an_edited_sentence_gets_its_own_file():
-	"""The bug this fixes: editing a sentence used to reuse the old filename and
-	overwrite the audio of the card already made from it."""
+	"""Otherwise it would overwrite the audio of the card already made from it."""
 	before = el.audio_filename("Je mange une pomme", stem="manger")
 	after = el.audio_filename("Je mange une poire", stem="manger")
 	assert before != after
@@ -86,13 +83,12 @@ def test_changing_voice_changes_the_name(monkeypatch):
 
 
 def test_name_is_the_readable_text_then_the_hash():
-	"""No "ankifier_" prefix: all the audio in the collection is this tool's."""
 	name = el.audio_filename("Je mange")
 	assert re.fullmatch(r"je_mange_[0-9a-f]{10}\.mp3", name)
 
 
 def test_all_punctuation_input_does_not_produce_a_leading_underscore():
-	"""sanitize_filename returns "" for "?!." -- the old scheme made "_1.mp3"."""
+	"""sanitize_filename returns "" for "?!."."""
 	name = el.audio_filename("?!.", stem="?!.")
 	assert name.startswith("card_")
 
@@ -109,8 +105,6 @@ def test_long_text_is_truncated_but_still_unique():
 # generate_audio -- reuse and crash-safety
 # ---------------------------------------------------------------------------
 class FakeClient:
-	"""Minimal stand-in for the ElevenLabs client."""
-
 	def __init__(self, chunks=(b"ID3", b"audio"), fail=False):
 		self.chunks, self.fail, self.calls = chunks, fail, 0
 		self.text_to_speech = self
@@ -130,8 +124,7 @@ def test_writes_the_file(tmp_path):
 
 
 def test_an_existing_file_is_reused_and_costs_no_credits(tmp_path):
-	"""What makes previewing a row free in aggregate: the add finds the
-	preview's file. Safe only because the path is content-addressed."""
+	"""So the add reuses a preview's file. Safe because paths are content-addressed."""
 	client = FakeClient()
 	out = tmp_path / "a.mp3"
 	el.generate_audio(client, "Je mange", out)

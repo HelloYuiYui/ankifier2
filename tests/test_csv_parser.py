@@ -1,10 +1,5 @@
-"""Pinning tests for csv_parser.parse_line.
-
-parse_line applies three heuristics in order: "word (function)", "article word",
-then plain word. Several of the cases below pin behaviour that is arguably wrong
-(a trailing-token rule that drops adjectives, an elided article that is not
-recognised) -- they are here so that any change in it is a decision rather than
-an accident.
+"""Some cases pin behaviour that is arguably wrong (a dropped adjective, an
+unrecognised elided article), so that changing it is a decision, not an accident.
 """
 
 import pytest

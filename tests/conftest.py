@@ -1,9 +1,7 @@
 """Keep the developer's real configuration out of the tests.
 
-Settings reads both .env and the ambient environment, so without this a test
-asserting on a default would pick up whatever is in the shell -- and a failure
-diff would print the value, which for AI_KEY or ELEVEN_LABS_KEY means a real
-secret in the test output.
+Settings reads the environment, so a test asserting on a default would pick up
+the shell's value, and a failure diff would print a real AI_KEY or ELEVEN_LABS_KEY.
 """
 
 import pytest

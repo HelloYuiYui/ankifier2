@@ -1,15 +1,3 @@
-"""Tests for cloze.py.
-
-Originally written against the old -word:hint- syntax to pin the behaviour
-before it moved to [[word:hint]]. Every expectation below came through that port
-unchanged except for the marker characters themselves, which is the evidence
-that the syntax change was only a syntax change -- the numbering, the inline
-hint splitting and the empty-hint rule all still produce exactly what they did.
-
-The two groups that did change meaning are called out in place: hyphens are now
-ordinary characters, and half-written markers are doubled brackets.
-"""
-
 import pytest
 
 from ankifier import cloze
@@ -208,12 +196,7 @@ def test_render_inline_hints(label, text, expected_plain, expected_cloze):
 
 
 # ---------------------------------------------------------------------------
-# HYPHENS: the whole point of the [[...]] syntax.
-#
-# Under the old single-hyphen marker these needed eight lines of lookbehind and
-# lookahead to get right, plus a separate orphan-stripping pass. Now a hyphen is
-# an ordinary character and these are regression guards: if anything ever starts
-# treating hyphens specially again, this group fails.
+# Hyphens are ordinary characters, never marker syntax
 # ---------------------------------------------------------------------------
 @pytest.mark.parametrize(
 	"text",
@@ -222,7 +205,7 @@ def test_render_inline_hints(label, text, expected_plain, expected_cloze):
 		"Le rendez-vous est demain",
 		"C'est peut-etre vrai",
 		"Je mange - une pomme",  # a freestanding dash is punctuation
-		"Je -mange une pomme",  # would have been an orphan marker before
+		"Je -mange une pomme",
 		"Je mange- une pomme",
 		"c'est-a-dire",
 	],
