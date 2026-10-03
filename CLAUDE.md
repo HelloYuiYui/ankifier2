@@ -64,7 +64,7 @@ tests/                  pytest; every connector is faked (no network, no credits
   It can't remove a derived tag.
 - **Changing `schemas.py` means changing `packages/api/src/types.ts` in the same change.**
   No codegen. Check `/docs`.
-- **Audio is content-addressed:** `ankifier_{readable}_{hash}.mp3`, so identical text
+- **Audio is content-addressed:** `{readable}_{hash}.mp3` (no prefix since Oct 2026; old files keep `ankifier_`), so identical text
   reuses the file. The `[sound:...]` tag always goes on the note's **back** field.
   `audio_side` only decides *what* is read (sentence vs translation).
 - **Hints are never read aloud.** `cloze.render` returns `(plain, cloze)`, and only

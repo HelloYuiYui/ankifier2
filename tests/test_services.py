@@ -531,7 +531,7 @@ def test_any_other_anki_failure_is_an_error(settings, tts, monkeypatch):
 def test_audio_url_is_returned(settings, anki, tts):
 	result = services.add_one(draft(), settings)
 	assert result.audio_url == f"/api/audio/{anki.media[0]}"
-	assert result.audio_url.startswith("/api/audio/ankifier_")
+	assert result.audio_url.startswith("/api/audio/manger_")
 
 
 def test_an_accented_filename_is_percent_encoded_in_the_url(settings, anki, tts):
