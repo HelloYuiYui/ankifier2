@@ -101,10 +101,10 @@ export function Review() {
 							<th>Keep</th>
 							<th>Word</th>
 							{showSenses && <th>Sense</th>}
-							<th style={{ width: '26%' }}>Spoken text</th>
+							<th style={{ width: '21%' }}>Spoken text</th>
 							<th style={{ width: '26%' }}>Card front</th>
-							<th style={{ width: '20%' }}>Back</th>
-							<th>Tags</th>
+							<th style={{ width: '16%' }}>Back</th>
+							<th style={{ width: '12%' }}>Tags</th>
 							{showSenses && <th>Level</th>}
 						</tr>
 					</thead>
