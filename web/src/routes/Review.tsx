@@ -176,6 +176,20 @@ export function Review() {
 								{showSenses && (
 									<td className="small muted">
 										{d.level ?? 'not returned'}
+										{d.partOfSpeech && (
+											<div>
+												<span className="badge neutral">
+													{d.partOfSpeech}
+												</span>
+											</div>
+										)}
+										{d.gender && (
+											<div>
+												<span className="badge neutral">
+													{d.gender}
+												</span>
+											</div>
+										)}
 									</td>
 								)}
 							</tr>

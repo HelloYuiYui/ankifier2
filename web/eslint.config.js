@@ -49,9 +49,8 @@ export default tseslint.config(
 	},
 
 	{
-		// The one place untyped data enters: `response.json()` and the Vite env
-		// are both `any`, and the code guards them by hand. Typing them properly
-		// would be a change to the client, not to its lint config.
+		// The Vite env is `any`. (The other untyped entry, `response.json()`,
+		// moved to packages/api with the rest of the client.)
 		files: ['src/api/client.ts'],
 		rules: {
 			'@typescript-eslint/no-unsafe-assignment': 'off',

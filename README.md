@@ -79,6 +79,28 @@ audio never plays before you turn the card over.
 `POST /api/cloze/preview`, so the preview you see while typing is produced by
 exactly the code that builds the card. -->
 
+## Browser extension
+
+A Chrome extension adds cards while you read, without leaving the page. Select a
+word and click **Card**: Mistral writes one card for the meaning the word has in
+the sentence you selected it from. You can also select a sentence and click
+**As is**. Wrap the part to hide in `[[...]]` before translating, or leave it
+plain for a front/back card. You review and edit the card in a small bubble on
+the page, then add it to Anki.
+
+The extension talks to the same local server, so `poetry run ankifier` and
+Anki both need to be running. To build and install it:
+
+```bash
+pnpm build:ext               # writes extension/.output/chrome-mv3
+```
+
+In `chrome://extensions`, turn on *Developer mode*, click *Load unpacked*, and
+pick `extension/.output/chrome-mv3`. The toolbar popup shows whether the server,
+Anki and both keys are ready, and it's where you change the server URL if it
+isn't `http://127.0.0.1:8000`. For development, `pnpm dev:ext` opens a Chrome
+with the extension loaded and reloads it on every change.
+
 ## Technical Details
 
 To Do 
@@ -158,7 +180,7 @@ exactly the code that builds the card.
 | `GET /api/audio/{filename}` | serves a generated mp3 |
 
 Interactive docs at http://127.0.0.1:8000/docs — that is also where you check
-that `web/src/api/types.ts` still matches `schemas.py`.
+that `packages/api/src/types.ts` still matches `schemas.py`.
 
 ### Dry run
 

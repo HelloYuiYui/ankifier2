@@ -144,6 +144,8 @@ def test_generate_returns_cards_and_errors(client, monkeypatch):
 	assert body["errors"] == []
 	assert body["cards"][0]["sourceId"] == "a"
 	assert body["cards"][0]["clozeSentence"] == "Je {{c1::mange}}"
+	assert body["cards"][0]["gender"] is None
+	assert body["cards"][0]["partOfSpeech"] is None
 
 
 def test_generate_with_no_rows_is_an_empty_result_not_an_error(client):
@@ -172,6 +174,28 @@ def test_generate_rejects_an_unknown_kind(client):
 		json={"rows": [{"sourceId": "a", "text": "x", "kind": "manual"}]},
 	)
 	assert response.status_code == 422
+
+
+@pytest.mark.parametrize(
+	"extra",
+	[{"maxSenses": 0}, {"maxSenses": 4}, {"context": "x" * 1001}],
+)
+def test_generate_rejects_out_of_range_senses_and_oversized_context(client, extra):
+	response = client.post(
+		"/api/generate",
+		json={"rows": [{"sourceId": "a", "text": "x", **extra}]},
+	)
+	assert response.status_code == 422
+
+
+def test_generate_defaults_to_three_senses_and_no_context(client, monkeypatch):
+	"""The web table sends neither field and must keep its three senses."""
+	seen = []
+	monkeypatch.setattr(
+		services, "generate_batch", lambda rows, s: seen.extend(rows) or ([], [])
+	)
+	client.post("/api/generate", json={"rows": [{"sourceId": "a", "text": "x"}]})
+	assert (seen[0].max_senses, seen[0].context) == (3, None)
 
 
 # ---------------------------------------------------------------------------
