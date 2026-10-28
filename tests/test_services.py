@@ -576,9 +576,27 @@ def test_dry_run_still_reports_the_deck_and_note_type(settings, anki, tts):
 	assert "Cloze" in cloze_result.card.detail
 
 	(basic_result,) = services.add_cards(
-		[draft(cloze_sentence="Bonjour")], settings, dry_run=True
+		[draft(kind="as_is", cloze_sentence="Bonjour")], settings, dry_run=True
 	)
 	assert "Basic" in basic_result.card.detail
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_a_generated_card_without_a_cloze_blocks_the_batch(
+	settings, anki, tts, dry_run
+):
+	cards = [draft(), draft(id="b#1", word="arbre", cloze_sentence="L'arbre pousse.")]
+	with pytest.raises(services.PreflightError, match="arbre"):
+		services.add_cards(cards, settings, dry_run=dry_run)
+	assert anki.notes == []
+
+
+@pytest.mark.parametrize("kind", ["as_is", "manual"])
+def test_other_kinds_may_still_be_basic_notes(settings, anki, tts, kind):
+	(result,) = services.add_cards(
+		[draft(kind=kind, cloze_sentence="Bonjour")], settings
+	)
+	assert result.card.state == "ok"
 
 
 def test_dry_run_still_runs_preflight(settings, anki, monkeypatch):

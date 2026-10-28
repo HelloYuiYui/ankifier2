@@ -62,6 +62,10 @@ tests/                  pytest; every connector is faked (no network, no credits
   (`vocabulary` | `grammar`), never a deck name. The one exception is `extra_tags`: raw
   comma-separated text the user types, which `services.parse_tags` splits and *appends*.
   It can't remove a derived tag.
+- **A `generated` card is always a cloze.** If Mistral's `hidden_text` isn't in its sentence,
+  `query_senses` asks it once more to fix just those senses. If it still misses, the sentence is
+  left unclozed, and `needsCloze` (`@ankifier/api`) and `services.preflight` block the add until
+  the user marks it. It is never prepended and never falls back to a Basic note.
 - **Changing `schemas.py` means changing `packages/api/src/types.ts` in the same change.**
   No codegen. Check `/docs`.
 - **Audio is content-addressed:** `{readable}_{hash}.mp3`, so identical text

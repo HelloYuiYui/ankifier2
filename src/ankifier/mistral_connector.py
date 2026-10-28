@@ -96,18 +96,41 @@ def clean_sense(s: dict) -> dict:
 	return {k: v.replace("*", "") if isinstance(v, str) else v for k, v in s.items()}
 
 
+def _hidden_text_found(s: dict) -> bool:
+	hidden = s["hidden_text"].strip().lower()
+	return bool(hidden) and hidden in s["sentence"].lower()
+
+
 def _build_cloze(sentence: str, hidden_text: str, hint: str) -> str:
+	"""The sentence with hidden_text clozed, or the sentence unchanged if
+	hidden_text is not in it. The unchanged sentence is not a valid generated
+	card: the clients and services.preflight refuse it until the user marks the
+	cloze by hand."""
 	lower_sentence = sentence.lower()
-	lower_hidden = hidden_text.lower()
-	idx = lower_sentence.find(lower_hidden)
+	lower_hidden = hidden_text.strip().lower()
+	idx = lower_sentence.find(lower_hidden) if lower_hidden else -1
+	if idx == -1:
+		return sentence
 
-	if idx != -1:
-		original = sentence[idx : idx + len(hidden_text)]
-		cloze = f"{{{{c1::{original}::{hint}}}}}"
-		return sentence[:idx] + cloze + sentence[idx + len(hidden_text) :]
+	end = idx + len(lower_hidden)
+	cloze = f"{{{{c1::{sentence[idx:end]}::{hint}}}}}"
+	return sentence[:idx] + cloze + sentence[end:]
 
-	# Not found in the sentence: prepend the cloze instead.
-	return f"{{{{c1::{hidden_text}::{hint}}}}} - {sentence}"
+
+def _missing_hidden_text_prompt(misses: list[tuple[int, dict]]) -> str:
+	lines = [
+		f'- Sense {i + 1}: hidden_text "{s["hidden_text"]}" is not in the sentence '
+		f'"{s["sentence"]}".'
+		for i, s in misses
+	]
+	return (
+		"In these senses, hidden_text does not appear verbatim in the sentence:\n"
+		+ "\n".join(lines)
+		+ "\nReturn the same senses in the same order. For the ones listed, fix "
+		"hidden_text (or the sentence) so that hidden_text is an exact substring "
+		"of the sentence, with the same spelling, elision and conjugation. Leave "
+		"the other senses as they are."
+	)
 
 
 def query_senses(
@@ -148,81 +171,104 @@ def query_senses(
 		entry, target_lang, max_senses=max_senses, context=context
 	)
 
-	response = client.chat.complete(
-		model=get_settings().mistral_model,
-		messages=[
-			{"role": "system", "content": system_prompt},
-			{"role": "user", "content": user_prompt},
-		],
-		response_format={
-			"type": "json_schema",
-			"json_schema": {
-				"name": "word_senses",
-				"schema": {
-					"type": "object",
-					"properties": {
-						"senses": {
-							"type": "array",
-							"items": {
-								"type": "object",
-								"properties": {
-									"sense": {"type": "string"},
-									"sentence": {"type": "string"},
-									"hidden_text": {"type": "string"},
-									"hint": {"type": "string"},
-									"translation": {"type": "string"},
-									"level": {
-										"type": "string",
-										"enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
-									},
-									# "none" rather than optional: strict mode makes every
-									# property required.
-									"gender": {
-										"type": "string",
-										"enum": ["masculine", "feminine", "none"],
-									},
-									"part_of_speech": {
-										"type": "string",
-										"enum": [
-											"noun",
-											"verb",
-											"adjective",
-											"adverb",
-											"other",
-										],
-									},
+	response_format = {
+		"type": "json_schema",
+		"json_schema": {
+			"name": "word_senses",
+			"schema": {
+				"type": "object",
+				"properties": {
+					"senses": {
+						"type": "array",
+						"items": {
+							"type": "object",
+							"properties": {
+								"sense": {"type": "string"},
+								"sentence": {"type": "string"},
+								"hidden_text": {"type": "string"},
+								"hint": {"type": "string"},
+								"translation": {"type": "string"},
+								"level": {
+									"type": "string",
+									"enum": ["A1", "A2", "B1", "B2", "C1", "C2"],
 								},
-								"required": [
-									"sense",
-									"sentence",
-									"hidden_text",
-									"hint",
-									"translation",
-									"level",
-									"gender",
-									"part_of_speech",
-								],
-								"additionalProperties": False,
+								# "none" rather than optional: strict mode makes every
+								# property required.
+								"gender": {
+									"type": "string",
+									"enum": ["masculine", "feminine", "none"],
+								},
+								"part_of_speech": {
+									"type": "string",
+									"enum": [
+										"noun",
+										"verb",
+										"adjective",
+										"adverb",
+										"other",
+									],
+								},
 							},
+							"required": [
+								"sense",
+								"sentence",
+								"hidden_text",
+								"hint",
+								"translation",
+								"level",
+								"gender",
+								"part_of_speech",
+							],
+							"additionalProperties": False,
 						},
 					},
-					"required": ["senses"],
-					"additionalProperties": False,
 				},
-				"strict": True,
+				"required": ["senses"],
+				"additionalProperties": False,
 			},
+			"strict": True,
 		},
-	)
+	}
+	messages = [
+		{"role": "system", "content": system_prompt},
+		{"role": "user", "content": user_prompt},
+	]
 
-	content = response.choices[0].message.content
-	data = json.loads(content)
+	def complete() -> str:
+		response = client.chat.complete(
+			model=get_settings().mistral_model,
+			messages=messages,
+			response_format=response_format,
+		)
+		return response.choices[0].message.content
+
+	content = complete()
+	# Sliced because strict json_schema mode cannot enforce an array length.
+	raw = [clean_sense(s) for s in json.loads(content).get("senses", [])[:max_senses]]
+
+	misses = [(i, s) for i, s in enumerate(raw) if not _hidden_text_found(s)]
+	if misses:
+		# One follow-up in the same conversation, so the model fixes its own
+		# senses rather than writing new ones. Only a sense that now matches
+		# replaces the original; a failed retry keeps what we had.
+		messages += [
+			{"role": "assistant", "content": content},
+			{"role": "user", "content": _missing_hidden_text_prompt(misses)},
+		]
+		try:
+			retried = json.loads(complete()).get("senses", [])
+		except Exception:
+			retried = []
+		for i, _ in misses:
+			if i < len(retried):
+				fixed = clean_sense(retried[i])
+				if _hidden_text_found(fixed):
+					raw[i] = fixed
 
 	# The user's own annotation beats the model's part of speech.
 	user_pos = part_of_speech_from_function(entry.function)
 	senses = []
-	# Sliced because strict json_schema mode cannot enforce an array length.
-	for i, s in enumerate(data.get("senses", [])[:max_senses], start=1):
-		s = clean_sense(s)
+	for i, s in enumerate(raw, start=1):
 		sentence = s["sentence"]
 		hidden_text = s["hidden_text"]
 		hint = s["hint"]

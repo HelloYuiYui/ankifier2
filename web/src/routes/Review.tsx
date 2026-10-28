@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
+import { needsCloze } from '@ankifier/api'
+
 import { ApiError, api } from '../api/client'
 import { ClozePreview } from '../components/ClozePreview'
 import { EditableCell } from '../components/EditableCell'
@@ -32,12 +34,14 @@ export function Review() {
 
 	const kept = keptDrafts({ drafts, keep })
 	const showSenses = drafts.some((d) => d.kind === 'generated')
+	const unclozed = kept.filter(needsCloze)
 
 	const add = async (dryRun: boolean) => {
 		if (!kept.length) {
 			setError('Nothing is ticked.')
 			return
 		}
+		if (unclozed.length) return
 		setBusy(dryRun ? 'dry' : 'real')
 		setError(null)
 		startAdding()
@@ -94,6 +98,15 @@ export function Review() {
 				</div>
 			)}
 
+			{unclozed.length > 0 && (
+				<div className="banner warn">
+					{unclozed.length} card{unclozed.length > 1 ? 's have' : ' has'} no
+					cloze because the hidden text was not found in the sentence. Mark it
+					in the card front as <code>{'{{c1::text::hint}}'}</code>, or untick
+					the card, before adding.
+				</div>
+			)}
+
 			<div className="scroll">
 				<table>
 					<thead>
@@ -112,7 +125,13 @@ export function Review() {
 						{drafts.map((d) => (
 							<tr
 								key={d.id}
-								className={keep[d.id] ? undefined : 'dropped'}
+								className={
+									!keep[d.id]
+										? 'dropped'
+										: needsCloze(d)
+											? 'needs-cloze'
+											: undefined
+								}
 							>
 								<td>
 									<input
@@ -167,6 +186,9 @@ export function Review() {
 										onChange={edit(d.id, 'clozeSentence')}
 									/>
 									<ClozePreview cloze={d.clozeSentence} />
+									{needsCloze(d) && (
+										<span className="badge skipped">no cloze</span>
+									)}
 								</td>
 								<td>
 									<EditableCell
@@ -221,14 +243,17 @@ export function Review() {
 					{kept.length === drafts.length ? 'Untick all' : 'Tick all'}
 				</button>
 				<span className="spacer" />
-				<button onClick={() => add(true)} disabled={busy !== null}>
+				<button
+					onClick={() => add(true)}
+					disabled={busy !== null || unclozed.length > 0}
+				>
 					{busy === 'dry' && <span className="spinner" />}
 					Dry run
 				</button>
 				<button
 					className="primary"
 					onClick={() => add(false)}
-					disabled={busy !== null}
+					disabled={busy !== null || unclozed.length > 0}
 				>
 					{busy === 'real' && <span className="spinner" />}
 					{busy === 'real' ? 'Adding…' : `Add ${kept.length} to Anki`}

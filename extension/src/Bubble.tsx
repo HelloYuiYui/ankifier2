@@ -9,7 +9,12 @@
  * picks one of the word's senses before any sentence is written.)
  */
 
-import type { AddResult, CardDraft, GenerateRow } from '@ankifier/api'
+import {
+	type AddResult,
+	type CardDraft,
+	type GenerateRow,
+	needsCloze,
+} from '@ankifier/api'
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
 import { CardEditor } from './CardEditor'
@@ -256,6 +261,13 @@ export function Bubble({ host }: { host: HTMLElement }) {
 							setState({ ...state, draft: { ...state.draft, ...patch } })
 						}
 					/>
+					{needsCloze(state.draft) && (
+						<p className="warn">
+							The hidden text was not found in the sentence. Mark it in
+							the front as <code>{'{{c1::text::hint}}'}</code>, or
+							regenerate.
+						</p>
+					)}
 					<footer>
 						<button
 							type="button"
@@ -271,7 +283,9 @@ export function Bubble({ host }: { host: HTMLElement }) {
 						<button
 							type="button"
 							className="primary"
-							disabled={state.step === 'adding'}
+							disabled={
+								state.step === 'adding' || needsCloze(state.draft)
+							}
 							onClick={() => void add(picked, state.row, state.draft)}
 						>
 							{state.step === 'adding' && <span className="spinner" />}

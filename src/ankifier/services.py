@@ -196,11 +196,21 @@ def synthesize(text: str, stem: str | None, settings: Settings) -> Path:
 # ---------------------------------------------------------------------------
 # Adding to Anki
 # ---------------------------------------------------------------------------
+def needs_cloze(card: CardDraft) -> bool:
+	return card.kind == "generated" and "{{c" not in card.cloze_sentence
+
+
 def preflight(
 	cards: list[CardDraft], settings: Settings, *, dry_run: bool = False
 ) -> None:
 	if not cards:
 		raise PreflightError("No cards to add")
+	# A generated card without a cloze would silently become a Basic note.
+	unclozed = [c.word for c in cards if needs_cloze(c)]
+	if unclozed:
+		raise PreflightError(
+			"Mark the cloze by hand before adding: " + ", ".join(unclozed)
+		)
 	if not settings.eleven_labs_key:
 		raise PreflightError("ELEVEN_LABS_KEY is not set")
 	if not check_connection():

@@ -276,6 +276,10 @@ tr.dropped td {
 	opacity: 0.45;
 }
 
+tr.needs-cloze td {
+	background: var(--warn-soft);
+}
+
 .mono {
 	font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 	font-size: 0.82rem;
