@@ -334,6 +334,12 @@ tr.needs-cloze td {
 	border-color: color-mix(in srgb, var(--warn) 25%, transparent);
 }
 
+.banner.ok {
+	background: var(--ok-soft);
+	color: var(--ok);
+	border-color: color-mix(in srgb, var(--ok) 25%, transparent);
+}
+
 .banner.error {
 	background: var(--error-soft);
 	color: var(--error);

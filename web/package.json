@@ -11,7 +11,8 @@
 		"lint": "eslint .",
 		"lint:fix": "eslint . --fix",
 		"format": "prettier --write .",
-		"format:check": "prettier --check ."
+		"format:check": "prettier --check .",
+		"test": "vitest run"
 	},
 	"dependencies": {
 		"@ankifier/api": "workspace:*",
@@ -35,6 +36,7 @@
 		"prettier": "^3.9.8",
 		"typescript": "~6.0.2",
 		"typescript-eslint": "^8.70.0",
-		"vite": "^8.3.0"
+		"vite": "^8.3.0",
+		"vitest": "^5.0.2"
 	}
 }
