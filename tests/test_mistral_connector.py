@@ -13,22 +13,31 @@ def entry(raw="glace", function=None):
 
 
 class FakeClient:
-	def __init__(self, senses):
+	"""Replies with each list of senses in turn, repeating the last one."""
+
+	def __init__(self, senses, *retries):
 		self.sent = []
 		self.chat = SimpleNamespace(complete=self._complete)
-		self._content = json.dumps({"senses": senses})
+		self._replies = [json.dumps({"senses": r}) for r in (senses, *retries)]
 
 	def _complete(self, *, messages, **_):
-		self.sent.append(messages)
-		message = SimpleNamespace(content=self._content)
+		self.sent.append(list(messages))
+		content = self._replies[min(len(self.sent), len(self._replies)) - 1]
+		message = SimpleNamespace(content=content)
 		return SimpleNamespace(choices=[SimpleNamespace(message=message)])
 
 
-def raw_sense(n, gender="feminine", part_of_speech="noun"):
+def raw_sense(
+	n,
+	gender="feminine",
+	part_of_speech="noun",
+	sentence="La glace fond.",
+	hidden="La glace",
+):
 	return {
 		"sense": f"sense {n}",
-		"sentence": "La glace fond.",
-		"hidden_text": "La glace",
+		"sentence": sentence,
+		"hidden_text": hidden,
 		"hint": "ice",
 		"translation": "The ice melts.",
 		"level": "A2",
@@ -120,3 +129,60 @@ def test_query_senses_sends_the_context_to_the_model():
 	query_senses(client, entry(), "French", max_senses=1, context="Le miroir.")
 	user = client.sent[0][1]["content"]
 	assert '"Le miroir."' in user
+
+
+# ---------------------------------------------------------------------------
+# hidden_text that is not in the sentence
+# ---------------------------------------------------------------------------
+def test_a_matching_hidden_text_is_clozed_without_a_retry():
+	client = FakeClient([raw_sense(1)])
+	sense = query_senses(client, entry(), "French")[0]
+	assert sense.cloze_sentence == "{{c1::La glace::ice}} fond."
+	assert len(client.sent) == 1
+
+
+def test_a_missing_hidden_text_is_retried_once_and_the_fix_is_used():
+	bad = raw_sense(1, sentence="L'arbre pousse.", hidden="le arbre")
+	fixed = raw_sense(1, sentence="L'arbre pousse.", hidden="L'arbre")
+	client = FakeClient([bad], [fixed])
+	sense = query_senses(client, entry("arbre"), "French")[0]
+	assert sense.cloze_sentence == "{{c1::L'arbre::ice}} pousse."
+	assert len(client.sent) == 2
+	follow_up = client.sent[1]
+	assert follow_up[-2]["role"] == "assistant"
+	assert '"le arbre"' in follow_up[-1]["content"]
+
+
+def test_the_retry_only_replaces_the_senses_that_missed():
+	good = raw_sense(1)
+	bad = raw_sense(2, sentence="L'arbre pousse.", hidden="le arbre")
+	retried_good = raw_sense(1, sentence="Je mange une glace.", hidden="une glace")
+	fixed = raw_sense(2, sentence="L'arbre pousse.", hidden="L'arbre")
+	client = FakeClient([good, bad], [retried_good, fixed])
+	senses = query_senses(client, entry(), "French")
+	assert senses[0].sentence == "La glace fond."
+	assert senses[1].cloze_sentence.startswith("{{c1::L'arbre")
+
+
+def test_a_hidden_text_still_missing_after_the_retry_leaves_no_cloze():
+	bad = raw_sense(1, sentence="L'arbre pousse.", hidden="le arbre")
+	client = FakeClient([bad])
+	sense = query_senses(client, entry("arbre"), "French")[0]
+	assert sense.cloze_sentence == "L'arbre pousse."
+	assert len(client.sent) == 2
+
+
+def test_a_failed_retry_keeps_the_first_answer():
+	bad = raw_sense(1, sentence="L'arbre pousse.", hidden="le arbre")
+	client = FakeClient([bad])
+	calls = []
+
+	def complete(*, messages, **_):
+		calls.append(messages)
+		if len(calls) > 1:
+			raise RuntimeError("rate limited")
+		return FakeClient([bad]).chat.complete(messages=messages)
+
+	client.chat.complete = complete
+	sense = query_senses(client, entry("arbre"), "French")[0]
+	assert sense.sentence == "L'arbre pousse."
