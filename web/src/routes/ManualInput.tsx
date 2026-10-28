@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
@@ -13,6 +13,7 @@ import type {
 } from '../api/types'
 
 import { emptyManualRow, useBatch } from '../store/batch'
+import { manualRowsFromCsv } from '../lib/csv'
 import { useDebounced } from '../lib/useDebounced'
 
 /** Mirrors cloze.MARKER_RE: a front with a complete marker is a cloze card. */
@@ -55,6 +56,8 @@ export function ManualInput() {
 
 	const [previews, setPreviews] = useState<Record<string, ClozeResult>>({})
 	const [error, setError] = useState<string | null>(null)
+	const [notice, setNotice] = useState<string | null>(null)
+	const fileInput = useRef<HTMLInputElement>(null)
 
 	// One request for the whole table, not one per row.
 	const clozeRows = useMemo(() => rows.filter((r) => hasMarker(r.front)), [rows])
@@ -97,6 +100,30 @@ export function ManualInput() {
 		setRows(rows.map((r) => (r.id === id ? { ...r, ...change } : r)))
 
 	const addRow = () => setRows([...rows, emptyManualRow()])
+
+	const importCsv = async (e: ChangeEvent<HTMLInputElement>) => {
+		const file = e.target.files?.[0]
+		// Cleared so picking the same file again still fires onChange.
+		e.target.value = ''
+		if (!file) return
+
+		const { rows: imported, skipped } = manualRowsFromCsv(
+			await file.text(),
+			emptyManualRow,
+		)
+		if (!imported.length) {
+			setNotice(null)
+			setError(`${file.name} has no rows with a front.`)
+			return
+		}
+		// Appended after the rows already typed, minus the blank ones.
+		setRows([...rows.filter((r) => r.front.trim() || r.back.trim()), ...imported])
+		setError(null)
+		setNotice(
+			`Imported ${imported.length} row${imported.length > 1 ? 's' : ''} from ${file.name}` +
+				(skipped ? `, skipped ${skipped} without a front.` : '.'),
+		)
+	}
 
 	const removeRow = (id: string) => {
 		const kept = rows.filter((r) => r.id !== id)
@@ -169,7 +196,10 @@ export function ManualInput() {
 			<p className="small muted" style={{ marginTop: 0 }}>
 				Nothing here touches the Mistral AI. Mark what to hide as{' '}
 				<code>[[word]]</code>, or <code>[[word:hint]]</code> to show a hint on
-				the card. A front without markers becomes a plain front/back card.
+				the card. A front without markers becomes a plain front/back card. A CSV
+				import takes front, back and an optional audio column (
+				<code>front</code> or <code>back</code>), by position or by a header
+				naming them.
 			</p>
 			<p className="small muted" style={{ marginTop: 0 }}>
 				<strong>Audio</strong> picks which side is read aloud — switch a row to{' '}
@@ -282,9 +312,23 @@ export function ManualInput() {
 					{error}
 				</div>
 			)}
+			{notice && !error && (
+				<div className="banner ok" style={{ marginTop: 14 }}>
+					{notice}
+				</div>
+			)}
 
 			<div className="actions">
 				<button onClick={addRow}>Add row</button>
+				<button onClick={() => fileInput.current?.click()}>Import CSV</button>
+				<input
+					ref={fileInput}
+					type="file"
+					accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+					aria-label="CSV file"
+					hidden
+					onChange={(e) => void importCsv(e)}
+				/>
 				<span className="spacer" />
 				<button className="primary" onClick={() => void toReview()}>
 					Review
