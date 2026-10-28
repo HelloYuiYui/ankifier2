@@ -15,6 +15,10 @@ import type {
 import { emptyManualRow, useBatch } from '../store/batch'
 import { useDebounced } from '../lib/useDebounced'
 
+/** Mirrors cloze.MARKER_RE: a front with a complete marker is a cloze card. */
+const MARKER_RE = /\[\[.+?\]\]/
+const hasMarker = (text: string) => MARKER_RE.test(text)
+
 /** Rows persisted before this column existed have no side; they read the front. */
 const sideOf = (row: ManualRowInput): AudioSide => row.audioSide ?? 'front'
 
@@ -53,10 +57,7 @@ export function ManualInput() {
 	const [error, setError] = useState<string | null>(null)
 
 	// One request for the whole table, not one per row.
-	const clozeRows = useMemo(
-		() => rows.filter((r) => r.cloze && r.front.trim()),
-		[rows],
-	)
+	const clozeRows = useMemo(() => rows.filter((r) => hasMarker(r.front)), [rows])
 	const debounced = useDebounced(
 		useMemo(() => clozeRows.map((r) => ({ id: r.id, text: r.front })), [clozeRows]),
 		150,
@@ -102,17 +103,36 @@ export function ManualInput() {
 		setRows(kept.length ? kept : [emptyManualRow()])
 	}
 
-	const toReview = () => {
+	const toReview = async () => {
 		const filled = rows.filter((r) => r.front.trim())
 		if (!filled.length) {
 			setError('Add at least one card front.')
 			return
 		}
 
+		// A marked row whose preview has not landed yet would otherwise go through
+		// with its raw [[...]] text and become a Basic card.
+		const rendered = { ...previews }
+		const missing = filled.filter((r) => hasMarker(r.front) && !rendered[r.front])
+		if (missing.length) {
+			try {
+				const { results } = await api.clozePreview(
+					missing.map((r) => ({ id: r.id, text: r.front })),
+				)
+				const textOf = new Map(missing.map((r) => [r.id, r.front]))
+				for (const result of results) {
+					const text = textOf.get(result.id)
+					if (text !== undefined) rendered[text] = result
+				}
+			} catch (e) {
+				setError(`Could not render the cloze markers: ${String(e)}`)
+				return
+			}
+		}
+
 		const drafts: CardDraft[] = filled.map((r) => {
-			// The server rendered these already; fall back to the literal text for a
-			// row whose preview has not landed (or that is not a cloze at all).
-			const preview = r.cloze ? previews[r.front] : undefined
+			// Rows without a marker are plain front/back cards.
+			const preview = hasMarker(r.front) ? rendered[r.front] : undefined
 			const plain = preview?.plain ?? r.front.trim()
 			const cloze = preview?.cloze ?? r.front.trim()
 			const audioSide = sideOf(r)
@@ -149,7 +169,7 @@ export function ManualInput() {
 			<p className="small muted" style={{ marginTop: 0 }}>
 				Nothing here touches the Mistral AI. Mark what to hide as{' '}
 				<code>[[word]]</code>, or <code>[[word:hint]]</code> to show a hint on
-				the card.
+				the card. A front without markers becomes a plain front/back card.
 			</p>
 			<p className="small muted" style={{ marginTop: 0 }}>
 				<strong>Audio</strong> picks which side is read aloud — switch a row to{' '}
@@ -178,16 +198,16 @@ export function ManualInput() {
 				<table>
 					<thead>
 						<tr>
-							<th style={{ width: '40%' }}>Front</th>
-							<th style={{ width: '32%' }}>Back</th>
+							<th style={{ width: '44%' }}>Front</th>
+							<th style={{ width: '34%' }}>Back</th>
 							<th>Audio</th>
-							<th>Cloze</th>
 							<th />
 						</tr>
 					</thead>
 					<tbody>
 						{rows.map((row) => {
-							const preview = row.cloze ? previews[row.front] : undefined
+							const marked = hasMarker(row.front)
+							const preview = marked ? previews[row.front] : undefined
 							return (
 								<tr key={row.id}>
 									<td>
@@ -199,7 +219,7 @@ export function ManualInput() {
 												patch(row.id, { front: e.target.value })
 											}
 										/>
-										{row.cloze && row.front.trim() && (
+										{marked && (
 											<div className="preview">
 												{preview ? (
 													<ClozePreview
@@ -242,20 +262,6 @@ export function ManualInput() {
 										)}
 									</td>
 									<td>
-										<label className="check">
-											<input
-												type="checkbox"
-												aria-label="Cloze"
-												checked={row.cloze}
-												onChange={(e) =>
-													patch(row.id, {
-														cloze: e.target.checked,
-													})
-												}
-											/>
-										</label>
-									</td>
-									<td>
 										<button
 											className="icon"
 											onClick={() => removeRow(row.id)}
@@ -280,7 +286,7 @@ export function ManualInput() {
 			<div className="actions">
 				<button onClick={addRow}>Add row</button>
 				<span className="spacer" />
-				<button className="primary" onClick={toReview}>
+				<button className="primary" onClick={() => void toReview()}>
 					Review
 				</button>
 			</div>

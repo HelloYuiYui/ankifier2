@@ -21,7 +21,6 @@ export interface ManualRowInput {
 	id: string
 	front: string
 	back: string
-	cloze: boolean
 	/** Optional: rows persisted before this column existed have no value. */
 	audioSide?: AudioSide
 }

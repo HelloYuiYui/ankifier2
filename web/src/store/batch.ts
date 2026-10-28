@@ -37,7 +37,6 @@ export const emptyManualRow = (): ManualRowInput => ({
 	id: newId(),
 	front: '',
 	back: '',
-	cloze: false,
 	audioSide: 'back',
 })
 
