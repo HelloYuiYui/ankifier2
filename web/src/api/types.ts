@@ -4,7 +4,7 @@
  * change; only the types below are the web UI's own.
  */
 
-import type { AudioSide } from '@ankifier/api'
+import type { AudioSide, DeckTarget } from '@ankifier/api'
 
 export type * from '@ankifier/api'
 
@@ -15,6 +15,12 @@ export interface GenerateRowInput {
 	text: string
 	asIs: boolean
 }
+
+/**
+ * The manual table's deck toggle. One choice in the UI, but two fields on the
+ * wire: a Bulgarian card has a single deck, so it sends a language and no target.
+ */
+export type ManualDeck = DeckTarget | 'bulgarian'
 
 /** A row in the manual input table. */
 export interface ManualRowInput {

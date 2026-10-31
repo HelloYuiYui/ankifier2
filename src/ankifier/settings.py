@@ -7,6 +7,7 @@ from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 Kind = str  # "generated" | "as_is" | "manual" -- see schemas.Kind
+Language = str  # "french" | "bulgarian" -- see schemas.Language
 
 
 class Settings(BaseSettings):
@@ -29,6 +30,8 @@ class Settings(BaseSettings):
 	anki_deck: str = "French::Vocabulary"
 	anki_asis_deck: str = "French::Grammar"
 	anki_manual_deck: str = "French::Grammar"
+	# Manual cards only, and only the one deck: nothing Bulgarian is generated.
+	anki_bulgarian_deck: str = "Bulgarian::Vocabulary"
 	# Comma-separated. A plain string because pydantic-settings parses list
 	# fields as JSON, which would reject ANKI_TAGS=a,b.
 	anki_tags: str = "ankifier"
@@ -41,6 +44,9 @@ class Settings(BaseSettings):
 	# --- audio -------------------------------------------------------------
 	audio_dir: Path = Path("audio")
 	elevenlabs_voice_id: str = "JBFqnCBsd6RMkjVDRZzb"
+	# Empty means elevenlabs_voice_id. The model takes the language from the
+	# text, but the voice still sets the accent, so a native one reads better.
+	elevenlabs_voice_id_bulgarian: str = "Ywe24jn5elUzaO9vm6vG"
 	elevenlabs_model: str = "eleven_multilingual_v2"
 	elevenlabs_output_format: str = "mp3_44100_128"
 	elevenlabs_timeout: float = 120.0
@@ -73,15 +79,24 @@ class Settings(BaseSettings):
 	def anki_timeout(self) -> tuple[float, float]:
 		return (self.anki_connect_timeout, self.anki_read_timeout)
 
-	def deck_for(self, kind: Kind, target: str | None = None) -> str:
+	def deck_for(
+		self, kind: Kind, target: str | None = None, language: Language = "french"
+	) -> str:
 		"""A manual card may pick the vocabulary or grammar deck; other kinds ignore
-		`target`."""
+		`target`. A Bulgarian card has one deck whatever the target."""
+		if language == "bulgarian":
+			return self.anki_bulgarian_deck
 		if kind == "manual" and target in ("vocabulary", "grammar"):
 			return self.anki_deck if target == "vocabulary" else self.anki_asis_deck
 		return {
 			"as_is": self.anki_asis_deck,
 			"manual": self.anki_manual_deck,
 		}.get(kind, self.anki_deck)
+
+	def voice_for(self, language: Language = "french") -> str:
+		if language == "bulgarian" and self.elevenlabs_voice_id_bulgarian:
+			return self.elevenlabs_voice_id_bulgarian
+		return self.elevenlabs_voice_id
 
 	def tags_for(self, kind: Kind) -> list[str]:
 		"""Base tags, plus a tag marking the kind so each can be searched for."""

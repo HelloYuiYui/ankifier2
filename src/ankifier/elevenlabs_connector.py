@@ -23,16 +23,22 @@ def sanitize_filename(text: str) -> str:
 	return text
 
 
-def audio_filename(text: str, stem: str | None = None) -> str:
+def audio_filename(
+	text: str, stem: str | None = None, *, voice_id: str | None = None
+) -> str:
 	"""Content-addressed filename for the audio of `text`.
 
 	Hashed from the spoken text (plus voice and model, which change the audio), so
 	the same text reuses one file and an edited sentence never overwrites another
 	card's audio in Anki. The readable part is only for finding a file by eye.
+
+	`voice_id` defaults to the configured voice, so the French names did not
+	change when per-language voices arrived.
 	"""
 	settings = get_settings()
+	voice = voice_id or settings.elevenlabs_voice_id
 	digest = hashlib.sha1(
-		f"{settings.elevenlabs_voice_id}|{settings.elevenlabs_model}|{text}".encode()
+		f"{voice}|{settings.elevenlabs_model}|{text}".encode()
 	).hexdigest()[:10]
 	# sanitize_filename returns "" for all-punctuation input.
 	safe = sanitize_filename(stem or text)[:40] or "card"
@@ -45,6 +51,7 @@ def generate_audio(
 	output_path: str | Path,
 	*,
 	skip_if_present: bool = True,
+	voice_id: str | None = None,
 ) -> str:
 	"""Generate TTS audio for `text` and save it to output_path.
 
@@ -62,7 +69,7 @@ def generate_audio(
 
 	audio_iterator = client.text_to_speech.convert(
 		text=text,
-		voice_id=settings.elevenlabs_voice_id,
+		voice_id=voice_id or settings.elevenlabs_voice_id,
 		model_id=settings.elevenlabs_model,
 		output_format=settings.elevenlabs_output_format,
 	)

@@ -1,6 +1,7 @@
 # Ankifier — orientation for Claude
 
-Personal tool: turns French words/sentences into Anki cards. Mistral writes the
+Personal tool: turns French words/sentences into Anki cards (plus manual-only
+Bulgarian cards; see "Languages"). Mistral writes the
 sentence + translation, ElevenLabs reads it aloud, AnkiConnect (localhost:8765)
 adds the note. Single user, runs locally, Anki must be open.
 
@@ -58,7 +59,7 @@ tests/                  pytest; every connector is faked (no network, no credits
 - **Stateless server.** No session and no server-side batch. The client posts back the
   drafts it kept.
 - **The client never picks a deck, tags or audio filename.** These are derived server-side
-  from `kind` (+ `deck_target` for manual cards) and the text. `deck_target` is an enum
+  from `kind` (+ `deck_target` for manual cards, + `language`) and the text. `deck_target` is an enum
   (`vocabulary` | `grammar`), never a deck name. The one exception is `extra_tags`: raw
   comma-separated text the user types, which `services.parse_tags` splits and *appends*.
   It can't remove a derived tag.
@@ -94,11 +95,22 @@ click "Add". Planned next: a sense picker, which is `POST /api/senses` plus a
 (inline hints are for manual cards only; as-is cards get hints from Mistral by position).
 Empty hint -> no `::`. Stray `[[`/`]]` are stripped. All of this lives in `cloze.py`.
 
+## Languages
+
+`CardDraft.language` (`french` | `bulgarian`, default `french`). Only French is generated:
+the prompts, article parsing and gender enum are French, so a validator rejects any
+other language unless `kind == "manual"`. `GenerateRow` has no language. The language
+picks the deck and the voice (`settings.voice_for`: `ELEVENLABS_VOICE_ID_<LANG>`, empty =
+the default voice). ElevenLabs takes the *language* from the text: `eleven_multilingual_v2`
+ignores `language_code`. The voice is in the audio hash, so `/api/audio/preview` takes
+`language` too. Web: the manual deck toggle's third option sends `language: 'bulgarian'`.
+A new language means one enum value, a deck setting, and a voice setting.
+
 ## Decks (settings.deck_for)
 
 `generated` -> `ANKI_DECK` (French::Vocabulary); `as_is` -> `ANKI_ASIS_DECK`
-(French::Grammar); `manual` -> `ANKI_MANUAL_DECK`, or vocab/grammar via
-`deck_target`. Tags (`services.note_tags`): `ANKI_TAGS` + `as-is`/`manual` + the CEFR level
+(French::Grammar); `manual` -> `ANKI_MANUAL_DECK` (French::Grammar), or vocab/grammar via
+`deck_target`; any Bulgarian card -> `ANKI_BULGARIAN_DECK` (Bulgarian::Vocabulary). Tags (`services.note_tags`): `ANKI_TAGS` + `as-is`/`manual` + the CEFR level
 + `noun`/`verb`/`adjective`/`adverb` + `masculine`/`feminine` for nouns. A missing value is no
 tag at all (no `unknown-*`): no level, a function word, a non-noun. A
 `(verb)`-style annotation in the input overrides Mistral's part of speech; only a noun keeps a gender.

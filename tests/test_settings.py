@@ -65,6 +65,27 @@ def test_deck_for_unknown_kind_falls_back_to_the_vocabulary_deck():
 	assert settings().deck_for("something-else") == "French::Vocabulary"
 
 
+@pytest.mark.parametrize("target", ["vocabulary", "grammar", None])
+def test_a_bulgarian_card_has_one_deck_whatever_the_target(target):
+	assert settings().deck_for("manual", target, "bulgarian") == "Bulgarian::Vocabulary"
+
+
+def test_the_bulgarian_deck_is_configurable():
+	s = settings(anki_bulgarian_deck="Б")
+	assert s.deck_for("manual", language="bulgarian") == "Б"
+
+
+def test_bulgarian_falls_back_to_the_default_voice():
+	# Empty, not omitted: the setting ships with a real Bulgarian voice.
+	s = settings(elevenlabs_voice_id="v", elevenlabs_voice_id_bulgarian="")
+	assert (s.voice_for("french"), s.voice_for("bulgarian")) == ("v", "v")
+
+
+def test_bulgarian_uses_its_own_voice_when_set():
+	s = settings(elevenlabs_voice_id="v", elevenlabs_voice_id_bulgarian="bg")
+	assert (s.voice_for("french"), s.voice_for("bulgarian")) == ("v", "bg")
+
+
 @pytest.mark.parametrize(
 	"kind,expected",
 	[

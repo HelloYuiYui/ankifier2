@@ -7,7 +7,7 @@ check /docs to confirm the two still agree.
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from pydantic.alias_generators import to_camel
 
 from ankifier.models import CEFRLevel, Gender, PartOfSpeech
@@ -26,6 +26,12 @@ DeckTarget = Literal["vocabulary", "grammar"]
 # so audio never plays before the card is turned over.
 AudioSide = Literal["front", "back"]
 
+# The language a card is in, which picks its deck and the ElevenLabs voice.
+# The text itself is what tells ElevenLabs the language: eleven_multilingual_v2
+# detects it and ignores a language_code. French is the only language Mistral
+# generates for, so any other language is manual-only -- see CardDraft.
+Language = Literal["french", "bulgarian"]
+
 
 class Base(BaseModel):
 	model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
@@ -39,9 +45,9 @@ class CardDraft(Base):
 	of /api/cards/add, since the server keeps no batch state.
 
 	Deck, tags and audio filename are deliberately absent: they are derived
-	server-side (from `kind`, `deck_target` and the text), so a client cannot create
-	a stray deck or make two cards collide on one audio file. `extra_tags` can only
-	add to the derived tags.
+	server-side (from `kind`, `deck_target`, `language` and the text), so a client
+	cannot create a stray deck or make two cards collide on one audio file.
+	`extra_tags` can only add to the derived tags.
 	"""
 
 	# f"{source_id}#{n}". Deterministic, so regenerating a row keeps the user's
@@ -85,8 +91,20 @@ class CardDraft(Base):
 	# "word" is a whole sentence). Cosmetic; the file's identity is its content.
 	audio_stem: str | None = None
 
-	# Manual cards only. None means the configured manual deck.
+	# Manual cards only. None means the configured manual deck. Ignored for a
+	# non-French card too: each other language has one deck.
 	deck_target: DeckTarget | None = None
+
+	language: Language = "french"
+
+	@model_validator(mode="after")
+	def _only_french_is_generated(self) -> "CardDraft":
+		# The prompts, the article parsing and the gender enum are all French,
+		# so a generated or as-is card in another language would be French
+		# grammar wearing a Bulgarian deck name. Rejected rather than coerced.
+		if self.language != "french" and self.kind != "manual":
+			raise ValueError(f"{self.language} cards can only be manual")
+		return self
 
 
 class Status(Base):
@@ -180,6 +198,9 @@ class AddResponse(Base):
 class AudioPreviewRequest(Base):
 	text: str
 	stem: str | None = None
+	# Picks the voice, which is part of the filename's hash -- so a preview in
+	# the wrong language would be a file the later add never finds.
+	language: Language = "french"
 
 
 class AudioPreviewResponse(Base):
@@ -204,6 +225,7 @@ class DeckConfig(Base):
 	generated: str
 	as_is: str
 	manual: str
+	bulgarian: str
 
 
 class HealthResponse(Base):

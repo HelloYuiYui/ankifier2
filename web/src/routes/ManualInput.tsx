@@ -6,8 +6,8 @@ import { ClozePreview } from '../components/ClozePreview'
 import type {
 	CardDraft,
 	ClozeResult,
-	DeckTarget,
 	HealthResponse,
+	ManualDeck,
 	ManualRowInput,
 	AudioSide,
 } from '../api/types'
@@ -23,10 +23,18 @@ const hasMarker = (text: string) => MARKER_RE.test(text)
 /** Rows persisted before this column existed have no side; they read the front. */
 const sideOf = (row: ManualRowInput): AudioSide => row.audioSide ?? 'front'
 
-const DECK_OPTIONS: { value: DeckTarget; label: string }[] = [
+const DECK_OPTIONS: { value: ManualDeck; label: string }[] = [
 	{ value: 'vocabulary', label: 'Vocabulary' },
 	{ value: 'grammar', label: 'Grammar' },
+	{ value: 'bulgarian', label: 'Bulgarian' },
 ]
+
+const deckName = (value: ManualDeck, decks: HealthResponse['decks'] | null) =>
+	({
+		vocabulary: decks?.generated,
+		grammar: decks?.asIs,
+		bulgarian: decks?.bulgarian,
+	})[value]
 
 /**
  * The manual flow, in one screen.
@@ -177,7 +185,9 @@ export function ManualInput() {
 				hiddenText: '',
 				hint: '',
 				level: null,
-				deckTarget: deck,
+				...(deck === 'bulgarian'
+					? { language: 'bulgarian' as const, deckTarget: null }
+					: { language: 'french' as const, deckTarget: deck }),
 				audioSide,
 				// Named after the spoken text, so the filename never carries
 				// marker punctuation. A back-read row needs no stem: the back
@@ -218,8 +228,7 @@ export function ManualInput() {
 						className={deck === value ? 'active' : undefined}
 						onClick={() => setDeck(value)}
 					>
-						{(value === 'vocabulary' ? decks?.generated : decks?.asIs) ??
-							label}
+						{deckName(value, decks) ?? label}
 					</button>
 				))}
 			</div>

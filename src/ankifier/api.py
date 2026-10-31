@@ -87,6 +87,7 @@ def health(settings: Settings = Depends(settings_dep)) -> HealthResponse:
 			generated=settings.deck_for("generated"),
 			as_is=settings.deck_for("as_is"),
 			manual=settings.deck_for("manual"),
+			bulgarian=settings.deck_for("manual", language="bulgarian"),
 		),
 		target_lang=settings.target_lang,
 		anki_decks=decks,
@@ -151,7 +152,7 @@ def audio_preview(
 	if not settings.eleven_labs_key:
 		raise HTTPException(503, "ELEVEN_LABS_KEY is not set")
 	try:
-		path = services.synthesize(req.text, req.stem, settings)
+		path = services.synthesize(req.text, req.stem, settings, req.language)
 	except Exception as e:
 		raise HTTPException(502, f"Audio generation failed: {e}") from e
 	return AudioPreviewResponse(audio_url=services.audio_url(path.name))

@@ -14,7 +14,7 @@ import { persist } from 'zustand/middleware'
 import type {
 	AddResult,
 	CardDraft,
-	DeckTarget,
+	ManualDeck,
 	GenerateError,
 	GenerateRowInput,
 	ManualRowInput,
@@ -48,7 +48,7 @@ interface BatchState {
 	generateRows: GenerateRowInput[]
 	manualRows: ManualRowInput[]
 	/** The deck the manual table adds to. Persisted, so it sticks between visits. */
-	manualDeck: DeckTarget
+	manualDeck: ManualDeck
 
 	drafts: CardDraft[]
 	/** Keyed by draft id, never by index -- that was the old bug. */
@@ -60,7 +60,7 @@ interface BatchState {
 
 	setGenerateRows: (rows: GenerateRowInput[]) => void
 	setManualRows: (rows: ManualRowInput[]) => void
-	setManualDeck: (deck: DeckTarget) => void
+	setManualDeck: (deck: ManualDeck) => void
 
 	startWorking: (source: 'generate' | 'manual') => void
 	setDrafts: (drafts: CardDraft[], errors?: GenerateError[]) => void
@@ -81,7 +81,7 @@ const initial = {
 	source: 'generate' as const,
 	generateRows: [emptyGenerateRow()],
 	manualRows: [emptyManualRow()],
-	manualDeck: 'vocabulary' as DeckTarget,
+	manualDeck: 'vocabulary' as ManualDeck,
 	drafts: [],
 	keep: {},
 	errors: [],

@@ -82,6 +82,17 @@ def test_changing_voice_changes_the_name(monkeypatch):
 	assert el.audio_filename("Je mange") != before
 
 
+def test_an_explicit_voice_changes_the_name_and_the_default_does_not():
+	"""Passing the configured voice must give the old name, or every French
+	file already in the collection would be generated again."""
+	assert el.audio_filename("Je mange", voice_id="voice-a") == el.audio_filename(
+		"Je mange"
+	)
+	assert el.audio_filename("Je mange", voice_id="voice-b") != el.audio_filename(
+		"Je mange"
+	)
+
+
 def test_name_is_the_readable_text_then_the_hash():
 	name = el.audio_filename("Je mange")
 	assert re.fullmatch(r"je_mange_[0-9a-f]{10}\.mp3", name)

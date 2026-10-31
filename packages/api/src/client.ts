@@ -15,6 +15,7 @@ import type {
 	GenerateResponse,
 	GenerateRow,
 	HealthResponse,
+	Language,
 } from './types'
 
 export class ApiError extends Error {
@@ -81,8 +82,9 @@ export function createClient({ base }: { base: string }) {
 		addCards: (req: AddRequest) => post<AddResponse>('/api/cards/add', req),
 
 		/** Cheap to repeat: the file is content-addressed and reused. */
-		audioPreview: (text: string, stem?: string) =>
-			post<AudioPreviewResponse>('/api/audio/preview', { text, stem }),
+		/** `language` picks the voice; it must match the card's, or the add won't reuse the file. */
+		audioPreview: (text: string, stem?: string, language?: Language) =>
+			post<AudioPreviewResponse>('/api/audio/preview', { text, stem, language }),
 	}
 }
 

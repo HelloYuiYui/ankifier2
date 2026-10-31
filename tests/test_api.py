@@ -57,6 +57,7 @@ def test_health_when_anki_is_up(client, anki_up):
 	assert body["keys"] == {"mistral": True, "elevenlabs": True}
 	assert body["ankiDecks"] == ["Default", "French::Vocabulary"]
 	assert body["targetLang"] == "French"
+	assert body["decks"]["bulgarian"] == "Bulgarian::Vocabulary"
 
 
 def test_health_is_200_even_when_anki_is_down(client, anki_down):
@@ -277,6 +278,22 @@ def test_the_client_cannot_choose_a_deck(client, monkeypatch):
 	assert not hasattr(seen[0], "tags")
 
 
+def test_a_bulgarian_generated_card_is_rejected(client):
+	response = client.post(
+		"/api/cards/add",
+		json={"cards": [card_payload(kind="generated", language="bulgarian")]},
+	)
+	assert response.status_code == 422
+
+
+def test_an_unknown_language_is_rejected(client):
+	response = client.post(
+		"/api/cards/add",
+		json={"cards": [card_payload(kind="manual", language="klingon")]},
+	)
+	assert response.status_code == 422
+
+
 def test_an_unknown_deck_target_is_rejected(client):
 	response = client.post(
 		"/api/cards/add",
@@ -331,7 +348,7 @@ def test_audio_preview_is_503_without_a_key(tmp_path):
 
 
 def test_audio_preview_returns_a_url(client, settings, monkeypatch):
-	def fake_synth(text, stem, s):
+	def fake_synth(text, stem, s, language="french"):
 		s.audio_root.mkdir(parents=True, exist_ok=True)
 		path = s.audio_root / "je_mange_abc.mp3"
 		path.write_bytes(b"ID3")

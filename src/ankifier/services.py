@@ -31,6 +31,7 @@ from ankifier.schemas import (
 	ClozeText,
 	GenerateError,
 	GenerateRow,
+	Language,
 	Status,
 )
 from ankifier.settings import Settings
@@ -177,8 +178,11 @@ def spoken_text(card: CardDraft) -> tuple[str, str | None]:
 	return card.sentence, card.audio_stem or card.word
 
 
-def audio_path(text: str, stem: str | None, settings: Settings) -> Path:
-	return settings.audio_root / audio_filename(text, stem)
+def audio_path(
+	text: str, stem: str | None, settings: Settings, language: Language = "french"
+) -> Path:
+	voice = settings.voice_for(language)
+	return settings.audio_root / audio_filename(text, stem, voice_id=voice)
 
 
 def audio_url(filename: str) -> str:
@@ -186,10 +190,12 @@ def audio_url(filename: str) -> str:
 	return f"/api/audio/{quote(filename)}"
 
 
-def synthesize(text: str, stem: str | None, settings: Settings) -> Path:
+def synthesize(
+	text: str, stem: str | None, settings: Settings, language: Language = "french"
+) -> Path:
 	settings.audio_root.mkdir(parents=True, exist_ok=True)
-	path = audio_path(text, stem, settings)
-	tts(_elevenlabs_client(), text, path)
+	path = audio_path(text, stem, settings, language)
+	tts(_elevenlabs_client(), text, path, voice_id=settings.voice_for(language))
 	return path
 
 
@@ -225,7 +231,7 @@ def preflight(
 	except OSError as e:
 		raise PreflightError(f"Audio directory is not writable: {e}") from e
 
-	for deck in {settings.deck_for(c.kind, c.deck_target) for c in cards}:
+	for deck in {settings.deck_for(c.kind, c.deck_target, c.language) for c in cards}:
 		ensure_deck(deck)
 
 
@@ -251,10 +257,11 @@ def note_tags(card: CardDraft, settings: Settings) -> list[str]:
 
 
 def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:
-	deck = settings.deck_for(card.kind, card.deck_target)
+	deck = settings.deck_for(card.kind, card.deck_target, card.language)
+	voice = settings.voice_for(card.language)
 	text, stem = spoken_text(card)
-	filename = audio_filename(text, stem)
-	path = settings.audio_root / filename
+	path = audio_path(text, stem, settings, card.language)
+	filename = path.name
 	note_type = "Cloze" if "{{c" in card.cloze_sentence else "Basic"
 
 	# ElevenLabs rejects "", so an empty side skips the audio but keeps the card.
@@ -284,7 +291,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 	else:
 		audio = Status(state="ok")
 		try:
-			tts(_elevenlabs_client(), text, path)
+			tts(_elevenlabs_client(), text, path, voice_id=voice)
 		except Exception as e:
 			audio = Status(state="error", detail=str(e))
 

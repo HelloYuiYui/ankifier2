@@ -616,6 +616,43 @@ def test_a_real_run_does_create_decks(settings, anki, tts):
 	assert anki.decks == ["French::Vocabulary"]
 
 
+def test_a_bulgarian_card_goes_to_the_bulgarian_deck(settings, anki, tts):
+	card = draft(
+		kind="manual",
+		language="bulgarian",
+		deck_target="grammar",
+		sentence="Аз ям ябълка",
+		cloze_sentence="Аз ям ябълка",
+		translation="I eat an apple",
+	)
+	(result,) = services.add_cards([card], settings)
+	assert anki.decks == ["Bulgarian::Vocabulary"]
+	assert result.deck == anki.notes[0]["deck_name"] == "Bulgarian::Vocabulary"
+	assert tts == ["Аз ям ябълка"]
+
+
+def test_a_bulgarian_card_is_read_by_the_bulgarian_voice(settings, anki, monkeypatch):
+	voices = []
+
+	def fake_tts(client, text, path, *, voice_id=None, **kw):
+		voices.append(voice_id)
+		path.write_bytes(b"ID3fake")
+
+	monkeypatch.setattr(services, "tts", fake_tts)
+	monkeypatch.setattr(services, "_elevenlabs_client", lambda: object())
+	s = settings.model_copy(update={"elevenlabs_voice_id_bulgarian": "bg-voice"})
+	services.add_cards(
+		[draft(), draft(id="b#1", kind="manual", language="bulgarian")], s
+	)
+	assert voices == [s.elevenlabs_voice_id, "bg-voice"]
+
+
+@pytest.mark.parametrize("kind", ["generated", "as_is"])
+def test_only_a_manual_card_can_be_bulgarian(kind):
+	with pytest.raises(ValueError, match="only be manual"):
+		draft(kind=kind, language="bulgarian")
+
+
 # ---------------------------------------------------------------------------
 # add_cards
 # ---------------------------------------------------------------------------
