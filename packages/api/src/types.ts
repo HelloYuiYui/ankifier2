@@ -24,6 +24,11 @@ export type PartOfSpeech = 'noun' | 'verb' | 'adjective' | 'adverb'
 export type AudioSide = 'front' | 'back'
 /** Which configured deck a manual card goes to; never a deck name itself. */
 export type DeckTarget = 'vocabulary' | 'grammar'
+/**
+ * Picks the deck and the ElevenLabs voice. Only French is ever generated; the
+ * server rejects any other language on a card that is not `manual`.
+ */
+export type Language = 'french' | 'bulgarian'
 
 /**
  * One prospective Anki note.
@@ -33,7 +38,7 @@ export type DeckTarget = 'vocabulary' | 'grammar'
  * /api/cards/add accepts.
  *
  * Deck, tags and audio filename are deliberately absent: the server derives
- * them from `kind`, `deckTarget` and the text.
+ * them from `kind`, `deckTarget`, `language` and the text.
  */
 export interface CardDraft {
 	/** `${sourceId}#${n}`. Stable across regenerating a single input row. */
@@ -78,6 +83,8 @@ export interface CardDraft {
 	audioStem: string | null
 	/** Manual cards only. Absent or null means the configured manual deck. */
 	deckTarget?: DeckTarget | null
+	/** Absent means 'french', which is every draft saved before it existed. */
+	language?: Language
 }
 
 export interface Status {
@@ -157,7 +164,7 @@ export interface AudioPreviewResponse {
 export interface HealthResponse {
 	anki: { ok: boolean; version: number | null; error: string | null }
 	keys: { mistral: boolean; elevenlabs: boolean }
-	decks: { generated: string; asIs: string; manual: string }
+	decks: { generated: string; asIs: string; manual: string; bulgarian: string }
 	targetLang: string
 	/** null when Anki is down -- distinct from an empty collection. */
 	ankiDecks: string[] | null
