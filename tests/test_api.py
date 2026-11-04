@@ -374,3 +374,40 @@ def test_the_app_starts_without_a_frontend_build():
 	"""StaticFiles raises at import time if its directory is missing, so a fresh
 	clone with no `pnpm build` must not blow up."""
 	assert TestClient(api.app).get("/api/health").status_code in (200, 503)
+
+
+# ---------------------------------------------------------------------------
+# Duplicate checks
+# ---------------------------------------------------------------------------
+def test_check_returns_the_duplicate_ids_in_request_order(client, monkeypatch):
+	monkeypatch.setattr(services, "duplicate_ids", lambda cards, s: {"b#1", "a#1"})
+	body = client.post(
+		"/api/cards/check",
+		json={
+			"cards": [card_payload(), card_payload(id="b#1"), card_payload(id="c#1")]
+		},
+	).json()
+	assert body == {"duplicates": ["a#1", "b#1"]}
+
+
+def test_check_is_503_when_anki_is_down(client, monkeypatch):
+	def boom(cards, s):
+		raise RuntimeError("connection refused")
+
+	monkeypatch.setattr(services, "duplicate_ids", boom)
+	response = client.post("/api/cards/check", json={"cards": [card_payload()]})
+	assert response.status_code == 503
+
+
+def test_existing_words_drops_blank_lines(client, monkeypatch):
+	seen = []
+	monkeypatch.setattr(
+		services,
+		"existing_word_notes",
+		lambda texts: seen.extend(texts) or {t: 1 for t in texts},
+	)
+	body = client.post(
+		"/api/words/existing", json={"texts": [" glace ", "", "  "]}
+	).json()
+	assert seen == ["glace"]
+	assert body == {"results": [{"text": "glace", "notes": 1}]}

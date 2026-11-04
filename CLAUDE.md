@@ -47,11 +47,15 @@ tests/                  pytest; every connector is faked (no network, no credits
    Serial, about 2s per row. One row can fan out into several senses, with ids `f"{source_id}#{n}"`.
    `max_senses` (1..3, default 3) caps that. `context` (the page sentence) makes a
    one-sense request pick the meaning used there. The extension sends `1` plus the context.
+   Before generating, the web page asks `POST /api/words/existing` how many notes each word
+   already has (`services.word_notes_query`) and shows it as a warning, never a block.
 2. **Manual** cards never reach the API until add. The client builds drafts itself,
    using `POST /api/cloze/preview` (batched) for the marker rendering.
-3. **Review** happens entirely client-side (keep/discard, edit cells).
+3. **Review** happens client-side (keep/discard, edit cells). It marks cards Anki already
+   has via `POST /api/cards/check` (`services.duplicate_ids`, AnkiConnect `canAddNotes`).
 4. **Add** (`POST /api/cards/add`): `preflight` (fails the whole batch with a 503 before
-   any side effect) -> `add_one` per card: TTS -> `storeMediaFile` -> `addNote`.
+   any side effect) -> `duplicate_ids` -> `add_one` per card: TTS -> `storeMediaFile` -> `addNote`.
+   A duplicate is skipped before TTS, so it costs no credits.
    The note type is Cloze if `"{{c"` is in `cloze_sentence`, otherwise Basic.
    `dryRun` skips TTS, deck creation and note writes.
 
@@ -68,6 +72,10 @@ tests/                  pytest; every connector is faked (no network, no credits
   `query_senses` asks it once more to fix just those senses. If it still misses, the sentence is
   left unclozed, and `needsCloze` (`@ankifier/api`) and `services.preflight` block the add until
   the user marks it. It is never prepended and never falls back to a Basic note.
+- **Duplicate checks build the note with `services.note_args`, the same as the add,** so they
+  can't disagree with what `addNote` rejects. The per-word check finds notes by the stem of the
+  `[sound:...]` filename (`elevenlabs_connector.audio_stem`): changing how stems are made
+  (e.g. #14) hides every note made before from it.
 - **Changing `schemas.py` means changing `packages/api/src/types.ts` in the same change.**
   No codegen. Check `/docs`.
 - **Audio is content-addressed:** `{readable}_{hash}.mp3`, so identical text

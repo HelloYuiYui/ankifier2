@@ -193,6 +193,34 @@ class AddResponse(Base):
 
 
 # ---------------------------------------------------------------------------
+# /api/cards/check and /api/words/existing
+# ---------------------------------------------------------------------------
+class CheckRequest(Base):
+	cards: list[CardDraft]
+
+
+class CheckResponse(Base):
+	# Ids of the cards Anki already has. /api/cards/add skips these on its own,
+	# so this only lets Review show it before adding.
+	duplicates: list[str]
+
+
+class ExistingWordsRequest(Base):
+	texts: list[str]
+
+
+class ExistingWord(Base):
+	text: str
+	# Notes whose audio was made for this input line, so a card for the word
+	# with a different sentence counts too.
+	notes: int
+
+
+class ExistingWordsResponse(Base):
+	results: list[ExistingWord]
+
+
+# ---------------------------------------------------------------------------
 # /api/audio
 # ---------------------------------------------------------------------------
 class AudioPreviewRequest(Base):

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
 import { needsCloze } from '@ankifier/api'
@@ -8,6 +8,10 @@ import { ClozePreview } from '../components/ClozePreview'
 import { EditableCell } from '../components/EditableCell'
 import type { CardDraft } from '../api/types'
 import { keptDrafts, useBatch } from '../store/batch'
+import { useDebounced } from '../lib/useDebounced'
+
+/** The first field Anki compares for duplicates, whichever note type it is. */
+const frontOf = (d: CardDraft) => `${d.clozeSentence}\u0000${d.sentence}`
 
 /**
  * One review table for all three kinds.
@@ -35,6 +39,36 @@ export function Review() {
 	const kept = keptDrafts({ drafts, keep })
 	const showSenses = drafts.some((d) => d.kind === 'generated')
 	const unclozed = kept.filter(needsCloze)
+
+	// Id -> the front that was checked. A flag only counts while the front is
+	// unchanged, so editing a duplicate clears it before the next check lands.
+	const [duplicates, setDuplicates] = useState<Record<string, string>>({})
+	const settled = useDebounced(drafts, 400)
+	useEffect(() => {
+		if (!settled.length) return
+		let cancelled = false
+		api.checkCards(settled)
+			.then(({ duplicates: ids }) => {
+				if (cancelled) return
+				const byId = new Map(settled.map((d) => [d.id, d]))
+				setDuplicates(
+					Object.fromEntries(
+						ids.flatMap((id) => {
+							const d = byId.get(id)
+							return d ? [[id, frontOf(d)] as const] : []
+						}),
+					),
+				)
+			})
+			.catch(() => {
+				/* cosmetic: the add skips duplicates itself */
+			})
+		return () => {
+			cancelled = true
+		}
+	}, [settled])
+	const isDuplicate = (d: CardDraft) => duplicates[d.id] === frontOf(d)
+	const keptDuplicates = kept.filter(isDuplicate)
 
 	const add = async (dryRun: boolean) => {
 		if (!kept.length) {
@@ -107,6 +141,15 @@ export function Review() {
 				</div>
 			)}
 
+			{keptDuplicates.length > 0 && (
+				<div className="banner warn">
+					{keptDuplicates.length} card
+					{keptDuplicates.length > 1 ? 's are' : ' is'} already in Anki and
+					will be skipped without generating audio. Edit the card front to
+					make it a new card, or untick it.
+				</div>
+			)}
+
 			<div className="scroll">
 				<table>
 					<thead>
@@ -145,6 +188,11 @@ export function Review() {
 									{d.kind !== 'generated' && (
 										<span className="badge neutral">
 											{d.kind === 'as_is' ? 'as is' : 'manual'}
+										</span>
+									)}
+									{isDuplicate(d) && (
+										<span className="badge skipped">
+											already in Anki
 										</span>
 									)}
 								</td>

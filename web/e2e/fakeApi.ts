@@ -8,15 +8,19 @@ import type {
 	AddRequest,
 	AddResponse,
 	CardDraft,
+	CheckResponse,
 	ClozePreviewResponse,
 	ClozeText,
+	ExistingWordsResponse,
 	GenerateResponse,
 	HealthResponse,
 } from '@ankifier/api'
 import type { Page, Route } from '@playwright/test'
 
-// The client builds this body inline, so the package has no type for it.
+// The client builds these bodies inline, so the package has no type for them.
 type ClozePreviewRequest = { texts: ClozeText[] }
+type CheckRequest = { cards: CardDraft[] }
+type ExistingWordsRequest = { texts: string[] }
 
 export interface FakeApi {
 	/** Every /api/cards/add body, in order. */
@@ -75,7 +79,16 @@ export async function fakeApi(
 	{
 		generated,
 		previewDelayMs = 0,
-	}: { generated?: GenerateResponse; previewDelayMs?: number } = {},
+		duplicates = [],
+		existingWords = {},
+	}: {
+		generated?: GenerateResponse
+		previewDelayMs?: number
+		/** Card ids Anki already has. */
+		duplicates?: string[]
+		/** Input line -> notes Anki already has for it. */
+		existingWords?: Record<string, number>
+	} = {},
 ): Promise<FakeApi> {
 	const api: FakeApi = { added: [], unexpected: [] }
 	const json = (route: Route, body: unknown) => route.fulfill({ json: body })
@@ -99,6 +112,27 @@ export async function fakeApi(
 		}
 
 		if (path === '/api/generate' && generated) return json(route, generated)
+
+		if (path === '/api/cards/check') {
+			const { cards } = request.postDataJSON() as CheckRequest
+			const body: CheckResponse = {
+				duplicates: cards
+					.map((c) => c.id)
+					.filter((id) => duplicates.includes(id)),
+			}
+			return json(route, body)
+		}
+
+		if (path === '/api/words/existing') {
+			const { texts } = request.postDataJSON() as ExistingWordsRequest
+			const body: ExistingWordsResponse = {
+				results: texts.map((text) => ({
+					text,
+					notes: existingWords[text] ?? 0,
+				})),
+			}
+			return json(route, body)
+		}
 
 		if (path === '/api/cards/add') {
 			const req = request.postDataJSON() as AddRequest

@@ -1,9 +1,10 @@
-import { useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { ApiError, api } from '../api/client'
 import type { GenerateRow, GenerateRowInput } from '../api/types'
 import { emptyGenerateRow, useBatch } from '../store/batch'
+import { useDebounced } from '../lib/useDebounced'
 import PanelHeader from '../components/common/PanelHeader'
 import PANEL_CONSTANTS from '../components/common/panelConstants'
 
@@ -18,6 +19,35 @@ export function GenerateInput() {
 	const [busy, setBusy] = useState(false)
 	const [error, setError] = useState<string | null>(null)
 	const lastInput = useRef<HTMLInputElement | null>(null)
+
+	// Text -> notes Anki already has for it, before any Mistral call. As-is rows
+	// are whole sentences, not words, so they are not looked up.
+	const [existing, setExisting] = useState<Record<string, number>>({})
+	const words = useDebounced(
+		useMemo(
+			() => [...new Set(rows.filter((r) => !r.asIs).map((r) => r.text.trim()))],
+			[rows],
+		).filter(Boolean),
+		400,
+	)
+	useEffect(() => {
+		if (!words.length) return
+		let cancelled = false
+		api.existingWords(words)
+			.then(({ results }) => {
+				if (cancelled) return
+				setExisting((prev) => ({
+					...prev,
+					...Object.fromEntries(results.map((r) => [r.text, r.notes])),
+				}))
+			})
+			.catch(() => {
+				/* a hint only: Anki may simply be closed */
+			})
+		return () => {
+			cancelled = true
+		}
+	}, [words])
 
 	const patch = (id: string, change: Partial<GenerateRowInput>) =>
 		setRows(rows.map((r) => (r.id === id ? { ...r, ...change } : r)))
@@ -114,6 +144,16 @@ export function GenerateInput() {
 										}
 										onKeyDown={(e) => onKeyDown(e, i)}
 									/>
+									{!row.asIs && !!existing[row.text.trim()] && (
+										<div className="small warn">
+											Already in Anki: {existing[row.text.trim()]}{' '}
+											note
+											{existing[row.text.trim()] > 1
+												? 's'
+												: ''}{' '}
+											with audio for this word.
+										</div>
+									)}
 								</td>
 								<td>
 									<label className="check">
