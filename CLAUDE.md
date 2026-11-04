@@ -94,6 +94,7 @@ click "Add". Planned next: a sense picker, which is `POST /api/senses` plus a
 
 `Le [[chat]] dort` -> `Le {{c1::chat}} dort`; `[[sois:être]]` -> `{{c1::sois::être}}`
 (inline hints are for manual cards only; as-is cards get hints from Mistral by position).
+Every marker is `c1`, so a sentence with several is still one card.
 Empty hint -> no `::`. Stray `[[`/`]]` are stripped. All of this lives in `cloze.py`.
 
 ## Languages
