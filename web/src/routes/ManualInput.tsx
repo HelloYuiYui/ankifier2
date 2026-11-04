@@ -3,28 +3,15 @@ import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
 import { Banner } from '../components/Banner'
-import { ClozePreview } from '../components/ClozePreview'
-import type {
-	CardDraft,
-	ClozeResult,
-	HealthResponse,
-	ManualDeck,
-	ManualRowInput,
-	AudioSide,
-} from '../api/types'
+import { ManualRow } from '../components/ManualRow'
+import type { CardDraft, ClozeResult, HealthResponse, ManualDeck } from '../api/types'
 
 import { emptyManualRow, useBatch } from '../store/batch'
 import { manualRowsFromCsv } from '../lib/csv'
+import { hasMarker, sideOf } from '../lib/manual'
 import { rowActions } from '../lib/rows'
 import { useDebounced } from '../lib/useDebounced'
 import { useHealth } from '../lib/useHealth'
-
-/** Mirrors cloze.MARKER_RE: a front with a complete marker is a cloze card. */
-const MARKER_RE = /\[\[.+?\]\]/
-const hasMarker = (text: string) => MARKER_RE.test(text)
-
-/** Rows persisted before this column existed have no side; they read the front. */
-const sideOf = (row: ManualRowInput): AudioSide => row.audioSide ?? 'front'
 
 const DECK_OPTIONS: { value: ManualDeck; label: string }[] = [
 	{ value: 'vocabulary', label: 'Vocabulary' },
@@ -235,74 +222,19 @@ export function ManualInput() {
 						</tr>
 					</thead>
 					<tbody>
-						{rows.map((row) => {
-							const marked = hasMarker(row.front)
-							const preview = marked ? previews[row.front] : undefined
-							return (
-								<tr key={row.id}>
-									<td>
-										<textarea
-											rows={1}
-											value={row.front}
-											placeholder="Il faut que tu [[sois:être]] là"
-											onChange={(e) =>
-												patch(row.id, { front: e.target.value })
-											}
-										/>
-										{marked && (
-											<div className="preview">
-												{preview ? (
-													<ClozePreview
-														cloze={preview.cloze}
-													/>
-												) : (
-													<span className="muted">…</span>
-												)}
-											</div>
-										)}
-									</td>
-									<td>
-										<textarea
-											rows={1}
-											value={row.back}
-											placeholder="You have to be there"
-											onChange={(e) =>
-												patch(row.id, { back: e.target.value })
-											}
-										/>
-									</td>
-									<td>
-										<select
-											aria-label="Audio from"
-											value={sideOf(row)}
-											onChange={(e) =>
-												patch(row.id, {
-													audioSide: e.target
-														.value as AudioSide,
-												})
-											}
-										>
-											<option value="front">Front</option>
-											<option value="back">Back</option>
-										</select>
-										{sideOf(row) === 'back' && !row.back.trim() && (
-											<div className="small muted">
-												No back text — no audio.
-											</div>
-										)}
-									</td>
-									<td>
-										<button
-											className="icon"
-											onClick={() => removeRow(row.id)}
-											aria-label="Remove row"
-										>
-											✕
-										</button>
-									</td>
-								</tr>
-							)
-						})}
+						{rows.map((row) => (
+							<ManualRow
+								key={row.id}
+								row={row}
+								preview={
+									hasMarker(row.front)
+										? previews[row.front]
+										: undefined
+								}
+								onChange={(change) => patch(row.id, change)}
+								onRemove={() => removeRow(row.id)}
+							/>
+						))}
 					</tbody>
 				</table>
 			</div>
