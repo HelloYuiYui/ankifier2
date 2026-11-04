@@ -14,7 +14,9 @@ import type {
 
 import { emptyManualRow, useBatch } from '../store/batch'
 import { manualRowsFromCsv } from '../lib/csv'
+import { rowActions } from '../lib/rows'
 import { useDebounced } from '../lib/useDebounced'
+import { useHealth } from '../lib/useHealth'
 
 /** Mirrors cloze.MARKER_RE: a front with a complete marker is a cloze card. */
 const MARKER_RE = /\[\[.+?\]\]/
@@ -52,15 +54,7 @@ export function ManualInput() {
 	const deck = useBatch((s) => s.manualDeck)
 	const setDeck = useBatch((s) => s.setManualDeck)
 
-	// Only for showing the real deck names on the toggle.
-	const [decks, setDecks] = useState<HealthResponse['decks'] | null>(null)
-	useEffect(() => {
-		api.health()
-			.then((h) => setDecks(h.decks))
-			.catch(() => {
-				/* the labels fall back to plain names */
-			})
-	}, [])
+	const decks = useHealth().health?.decks ?? null
 
 	const [previews, setPreviews] = useState<Record<string, ClozeResult>>({})
 	const [error, setError] = useState<string | null>(null)
@@ -104,10 +98,11 @@ export function ManualInput() {
 		}
 	}, [debounced])
 
-	const patch = (id: string, change: Partial<ManualRowInput>) =>
-		setRows(rows.map((r) => (r.id === id ? { ...r, ...change } : r)))
-
-	const addRow = () => setRows([...rows, emptyManualRow()])
+	const {
+		patch,
+		add: addRow,
+		remove: removeRow,
+	} = rowActions(rows, setRows, emptyManualRow)
 
 	const importCsv = async (e: ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0]
@@ -131,11 +126,6 @@ export function ManualInput() {
 			`Imported ${imported.length} row${imported.length > 1 ? 's' : ''} from ${file.name}` +
 				(skipped ? `, skipped ${skipped} without a front.` : '.'),
 		)
-	}
-
-	const removeRow = (id: string) => {
-		const kept = rows.filter((r) => r.id !== id)
-		setRows(kept.length ? kept : [emptyManualRow()])
 	}
 
 	const toReview = async () => {

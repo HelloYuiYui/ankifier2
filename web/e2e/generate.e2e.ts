@@ -1,6 +1,6 @@
 import { expect, test } from './test'
 
-test.use({ existingWords: { 'la glace': 2 } })
+test.use({ fake: { existingWords: { 'la glace': 2 } } })
 
 test('a word Anki already has cards for is flagged before generating', async ({
 	page,

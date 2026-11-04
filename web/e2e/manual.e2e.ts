@@ -5,7 +5,7 @@ test.beforeEach(async ({ page, api: _ }) => {
 })
 
 test.describe('with a slow preview', () => {
-	test.use({ previewDelayMs: 1000 })
+	test.use({ fake: { previewDelayMs: 1000 } })
 
 	test('a marked front becomes a cloze and a plain front a Basic card', async ({
 		page,

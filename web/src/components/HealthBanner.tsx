@@ -1,26 +1,11 @@
-import { useEffect, useState } from 'react'
-
-import { ApiError, api } from '../api/client'
-import type { HealthResponse } from '../api/types'
+import { useHealth } from '../lib/useHealth'
 
 /**
  * One call at boot, so the user learns that Anki is closed or a key is missing
  * here rather than halfway through a batch.
  */
 export function HealthBanner() {
-	const [health, setHealth] = useState<HealthResponse | null>(null)
-	const [unreachable, setUnreachable] = useState<string | null>(null)
-
-	useEffect(() => {
-		api.health()
-			.then((h) => {
-				setHealth(h)
-				setUnreachable(null)
-			})
-			.catch((e: unknown) =>
-				setUnreachable(e instanceof ApiError ? e.message : String(e)),
-			)
-	}, [])
+	const { health, error: unreachable } = useHealth()
 
 	if (unreachable) {
 		return (
