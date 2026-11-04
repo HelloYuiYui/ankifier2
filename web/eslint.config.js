@@ -8,7 +8,7 @@ import prettier from 'eslint-config-prettier'
 
 export default tseslint.config(
 	// Vite writes the built SPA into the Python package; never lint the bundle.
-	{ ignores: ['dist'] },
+	{ ignores: ['dist', 'playwright-report', 'test-results'] },
 
 	{
 		files: ['**/*.{ts,tsx}'],
@@ -58,9 +58,16 @@ export default tseslint.config(
 		},
 	},
 
-	// Build and config files run in Node, not the browser.
+	// Build, config and Playwright files run in Node, not the browser.
 	{
-		files: ['vite.config.ts', 'eslint.config.js'],
+		files: ['vite.config.ts', 'eslint.config.js', 'playwright.config.ts', 'e2e/**'],
 		languageOptions: { globals: globals.node },
+	},
+
+	{
+		// Playwright fixtures receive a callback named `use`, which the hooks
+		// rule mistakes for React's use(). There is no React in these files.
+		files: ['e2e/**'],
+		rules: { 'react-hooks/rules-of-hooks': 'off' },
 	},
 )
