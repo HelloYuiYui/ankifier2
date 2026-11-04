@@ -7,6 +7,7 @@ add_one() knows nothing about the batch it is part of, so making the loop
 concurrent or streaming results only means changing add_cards().
 """
 
+import re
 from functools import lru_cache
 from pathlib import Path
 from urllib.parse import quote
@@ -15,12 +16,17 @@ from ankifier import cloze, mistral_connector
 from ankifier.anki_connector import (
 	add_basic_note,
 	add_cloze_note,
+	basic_note,
+	can_add_notes,
 	check_connection,
+	cloze_note,
+	deck_names,
 	ensure_deck,
+	find_notes,
 	store_media_file,
 )
 from ankifier.csv_parser import parse_line
-from ankifier.elevenlabs_connector import audio_filename
+from ankifier.elevenlabs_connector import audio_filename, audio_stem
 from ankifier.elevenlabs_connector import generate_audio as tts
 from ankifier.elevenlabs_connector import init_client as init_elevenlabs
 from ankifier.schemas import (
@@ -256,13 +262,99 @@ def note_tags(card: CardDraft, settings: Settings) -> list[str]:
 	return list(dict.fromkeys([*tags, *parse_tags(card.extra_tags)]))
 
 
-def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> AddResult:
+def note_type(card: CardDraft) -> str:
+	# Anki rejects a Cloze note with zero deletions.
+	return "Cloze" if "{{c" in card.cloze_sentence else "Basic"
+
+
+def note_args(card: CardDraft, settings: Settings, audio_file: str | None) -> dict:
+	"""What add_cloze_note / add_basic_note get for this card. The duplicate
+	check builds its notes from this too, so it cannot disagree with the add."""
+	deck = settings.deck_for(card.kind, card.deck_target, card.language)
+	tags = note_tags(card, settings)
+	if note_type(card) == "Cloze":
+		return dict(
+			deck_name=deck,
+			cloze_text=card.cloze_sentence,
+			back_extra=card.translation,
+			audio_filename=audio_file,
+			tags=tags,
+		)
+	return dict(
+		deck_name=deck,
+		front=card.sentence,
+		back=card.translation,
+		audio_filename=audio_file,
+		tags=tags,
+	)
+
+
+def duplicate_ids(cards: list[CardDraft], settings: Settings) -> set[str]:
+	"""Ids of the cards Anki already has, by its own duplicate rule (same note
+	type and first field). Read-only.
+
+	Only cards whose deck exists are asked about: canAddNotes also says no to a
+	missing deck, and a deck that does not exist yet holds no duplicates.
+	"""
+	decks = set(deck_names())
+	asked = [
+		c
+		for c in cards
+		if settings.deck_for(c.kind, c.deck_target, c.language) in decks
+	]
+	if not asked:
+		return set()
+	notes = []
+	for c in asked:
+		args = note_args(c, settings, None)
+		build = cloze_note if note_type(c) == "Cloze" else basic_note
+		notes.append(build(**args))
+	return {c.id for c, ok in zip(asked, can_add_notes(notes), strict=True) if not ok}
+
+
+def word_notes_query(text: str) -> str:
+	"""An Anki search for notes whose audio was made for this input line.
+
+	A generated card's audio file is named after its input line, and the
+	[sound:...] tag on its back field keeps that name, so this finds earlier
+	cards for the word even when their sentences differ.
+	"""
+	stem = re.escape(audio_stem(parse_line(text).raw))
+	# re: is raw input in Anki's search: only a double quote needs escaping,
+	# and the stem has none.
+	return f'"re:\\[sound:{stem}_[0-9a-f]{{10}}\\.mp3\\]"'
+
+
+def existing_word_notes(texts: list[str]) -> dict[str, int]:
+	"""How many notes each input line already has, by word_notes_query."""
+	return {t: len(find_notes(word_notes_query(t))) for t in dict.fromkeys(texts)}
+
+
+def add_one(
+	card: CardDraft,
+	settings: Settings,
+	*,
+	dry_run: bool = False,
+	duplicate: bool = False,
+) -> AddResult:
 	deck = settings.deck_for(card.kind, card.deck_target, card.language)
 	voice = settings.voice_for(card.language)
 	text, stem = spoken_text(card)
 	path = audio_path(text, stem, settings, card.language)
 	filename = path.name
-	note_type = "Cloze" if "{{c" in card.cloze_sentence else "Basic"
+	kind = note_type(card)
+
+	if duplicate:
+		# Before TTS: audio for a card Anki will reject is credits for nothing.
+		return AddResult(
+			id=card.id,
+			audio=Status(state="skipped", detail="not generated -- duplicate card"),
+			card=Status(
+				state="skipped",
+				detail=f"{'dry run -- ' if dry_run else ''}already in Anki",
+			),
+			deck=deck,
+		)
 
 	# ElevenLabs rejects "", so an empty side skips the audio but keeps the card.
 	nothing_to_read = Status(
@@ -280,9 +372,7 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 				if speakable
 				else nothing_to_read
 			),
-			card=Status(
-				state="skipped", detail=f"dry run -- would add a {note_type} note"
-			),
+			card=Status(state="skipped", detail=f"dry run -- would add a {kind} note"),
 			deck=deck,
 		)
 
@@ -300,23 +390,11 @@ def add_one(card: CardDraft, settings: Settings, *, dry_run: bool = False) -> Ad
 	try:
 		if audio_ok:
 			store_media_file(filename, str(path))
-		if note_type == "Cloze":
-			add_cloze_note(
-				deck_name=deck,
-				cloze_text=card.cloze_sentence,
-				back_extra=card.translation,
-				audio_filename=filename if audio_ok else None,
-				tags=note_tags(card, settings),
-			)
+		args = note_args(card, settings, filename if audio_ok else None)
+		if kind == "Cloze":
+			add_cloze_note(**args)
 		else:
-			# Anki rejects a Cloze note with zero deletions.
-			add_basic_note(
-				deck_name=deck,
-				front=card.sentence,
-				back=card.translation,
-				audio_filename=filename if audio_ok else None,
-				tags=note_tags(card, settings),
-			)
+			add_basic_note(**args)
 	except RuntimeError as e:
 		if "duplicate" in str(e).lower():
 			status = Status(state="skipped", detail="duplicate")
@@ -338,4 +416,13 @@ def add_cards(
 	cards: list[CardDraft], settings: Settings, *, dry_run: bool = False
 ) -> list[AddResult]:
 	preflight(cards, settings, dry_run=dry_run)
-	return [add_one(card, settings, dry_run=dry_run) for card in cards]
+	try:
+		duplicates = duplicate_ids(cards, settings)
+	except Exception:
+		# Only an optimisation: addNote still rejects a duplicate, just after
+		# its audio has been paid for.
+		duplicates = set()
+	return [
+		add_one(card, settings, dry_run=dry_run, duplicate=card.id in duplicates)
+		for card in cards
+	]

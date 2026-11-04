@@ -65,3 +65,19 @@ test('unticking the card unblocks the rest', async ({ page, api }) => {
 	)
 	expect(api.added[0].cards.map((c) => c.word)).toEqual(['glace'])
 })
+
+test.describe('with a card Anki already has', () => {
+	test.use({ duplicates: ['g#1'] })
+
+	test('it is marked, and editing its front clears the mark', async ({ page }) => {
+		const row = page.getByRole('row').filter({ hasText: 'The ice melts.' })
+		await expect(row.getByText('already in Anki')).toBeVisible()
+		await expect(page.getByText('1 card is already in Anki')).toBeVisible()
+
+		await row.locator('button.cell.mono').click()
+		const front = page.getByLabel('Card front')
+		await front.fill('{{c1::La glace::ice}} fond vite.')
+		await front.blur()
+		await expect(row.getByText('already in Anki')).toBeHidden()
+	})
+})

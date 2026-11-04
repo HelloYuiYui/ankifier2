@@ -10,8 +10,11 @@ import type {
 	AddRequest,
 	AddResponse,
 	AudioPreviewResponse,
+	CardDraft,
+	CheckResponse,
 	ClozePreviewResponse,
 	ClozeText,
+	ExistingWordsResponse,
 	GenerateResponse,
 	GenerateRow,
 	HealthResponse,
@@ -80,6 +83,14 @@ export function createClient({ base }: { base: string }) {
 			post<GenerateResponse>('/api/generate', { rows }),
 
 		addCards: (req: AddRequest) => post<AddResponse>('/api/cards/add', req),
+
+		/** Read-only. 503 when Anki is down. */
+		checkCards: (cards: CardDraft[]) =>
+			post<CheckResponse>('/api/cards/check', { cards }),
+
+		/** Read-only. 503 when Anki is down. */
+		existingWords: (texts: string[]) =>
+			post<ExistingWordsResponse>('/api/words/existing', { texts }),
 
 		/** Cheap to repeat: the file is content-addressed and reused. */
 		/** `language` picks the voice; it must match the card's, or the add won't reuse the file. */

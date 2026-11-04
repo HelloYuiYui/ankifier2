@@ -3,6 +3,8 @@ invisible: the deck, the note type, a failed audio still creating a card, and a
 duplicate being a skip rather than an error.
 """
 
+import re
+
 import pytest
 
 from ankifier import services
@@ -27,6 +29,12 @@ class FakeAnki:
 	def __init__(self, *, connected=True, fail_with=None):
 		self.connected, self.fail_with = connected, fail_with
 		self.decks, self.media, self.notes = [], [], []
+		# The collection: which decks exist, which first fields are taken, and
+		# what each findNotes query returns.
+		self.existing_decks = ["French::Vocabulary", "French::Grammar"]
+		self.taken = set()
+		self.found = {}
+		self.asked, self.queries = [], []
 
 	def check_connection(self):
 		return self.connected
@@ -49,6 +57,17 @@ class FakeAnki:
 	def add_basic_note(self, **kw):
 		return self._add("Basic", **kw)
 
+	def deck_names(self):
+		return list(self.existing_decks)
+
+	def can_add_notes(self, notes):
+		self.asked.extend(notes)
+		return [next(iter(n["fields"].values())) not in self.taken for n in notes]
+
+	def find_notes(self, query):
+		self.queries.append(query)
+		return self.found.get(query, [])
+
 
 @pytest.fixture
 def anki(monkeypatch):
@@ -59,6 +78,9 @@ def anki(monkeypatch):
 		"store_media_file",
 		"add_cloze_note",
 		"add_basic_note",
+		"deck_names",
+		"can_add_notes",
+		"find_notes",
 	):
 		monkeypatch.setattr(services, name, getattr(fake, name))
 	return fake
@@ -661,3 +683,93 @@ def test_add_cards_returns_one_result_per_card_in_order(settings, anki, tts):
 	results = services.add_cards(cards, settings)
 	assert [r.id for r in results] == ["c0#1", "c1#1", "c2#1", "c3#1"]
 	assert len(anki.notes) == 4
+
+
+# ---------------------------------------------------------------------------
+# Duplicates
+# ---------------------------------------------------------------------------
+def test_duplicate_ids_uses_the_note_the_add_would_send(settings, anki):
+	anki.taken = {"Je {{c1::mange::eat}} une pomme"}
+	cards = [draft(), draft(id="b#1", cloze_sentence="Je {{c1::bois}} du café")]
+	assert services.duplicate_ids(cards, settings) == {"a#1"}
+	# Same builder as add_one: a check that disagreed with the add would let
+	# the paid-for audio through anyway.
+	assert anki.asked[0] == services.cloze_note(
+		**services.note_args(cards[0], settings, None)
+	)
+
+
+def test_duplicate_ids_checks_a_basic_card_by_its_front(settings, anki):
+	anki.taken = {"Bonjour"}
+	card = draft(kind="as_is", sentence="Bonjour", cloze_sentence="Bonjour")
+	assert services.duplicate_ids([card], settings) == {"a#1"}
+	assert anki.asked[0]["modelName"] == "Basic"
+
+
+def test_duplicate_ids_skips_decks_that_do_not_exist_yet(settings, anki):
+	"""canAddNotes says no to a missing deck, which is not a duplicate."""
+	anki.existing_decks = []
+	assert services.duplicate_ids([draft()], settings) == set()
+	assert anki.asked == []
+
+
+def test_a_duplicate_is_skipped_before_any_audio_is_paid_for(settings, anki, tts):
+	anki.taken = {"Je {{c1::mange::eat}} une pomme"}
+	dup, new = services.add_cards(
+		[draft(), draft(id="b#1", word="boire", cloze_sentence="Je {{c1::bois}}")],
+		settings,
+	)
+	assert (dup.card.state, dup.card.detail) == ("skipped", "already in Anki")
+	assert dup.audio.state == "skipped"
+	assert new.card.state == "ok"
+	assert tts == ["Je mange une pomme"] and len(anki.notes) == 1
+
+
+def test_a_dry_run_reports_duplicates_too(settings, anki, tts):
+	anki.taken = {"Je {{c1::mange::eat}} une pomme"}
+	(result,) = services.add_cards([draft()], settings, dry_run=True)
+	assert result.card.detail == "dry run -- already in Anki"
+
+
+def test_a_failed_duplicate_check_does_not_fail_the_add(
+	settings, anki, tts, monkeypatch
+):
+	def boom(notes):
+		raise RuntimeError("canAddNotes unsupported")
+
+	monkeypatch.setattr(services, "can_add_notes", boom)
+	(result,) = services.add_cards([draft()], settings)
+	assert result.card.state == "ok"
+
+
+# ---------------------------------------------------------------------------
+# Earlier notes for a word
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize(
+	"text,query",
+	[
+		("la glace", r'"re:\[sound:la_glace_[0-9a-f]{10}\.mp3\]"'),
+		("promener (verb)", r'"re:\[sound:promener_verb_[0-9a-f]{10}\.mp3\]"'),
+		("  être ", r'"re:\[sound:être_[0-9a-f]{10}\.mp3\]"'),
+	],
+)
+def test_word_notes_query_matches_the_audio_name_add_one_writes(text, query):
+	assert services.word_notes_query(text) == query
+
+
+def test_word_notes_query_matches_a_real_generated_filename(settings):
+	"""The regex must match what audio_path actually names a generated card's
+	file, or every earlier card is missed."""
+	card = draft(word="la glace")
+	name = services.audio_path(*services.spoken_text(card), settings).name
+	pattern = services.word_notes_query("la glace").strip('"').removeprefix("re:")
+	assert re.fullmatch(pattern, f"[sound:{name}]")
+
+
+def test_existing_word_notes_counts_each_line_once(anki):
+	anki.found = {services.word_notes_query("glace"): [1, 2]}
+	assert services.existing_word_notes(["glace", "pain", "glace"]) == {
+		"glace": 2,
+		"pain": 0,
+	}
+	assert len(anki.queries) == 2

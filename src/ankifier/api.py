@@ -20,9 +20,14 @@ from ankifier.schemas import (
 	AnkiStatus,
 	AudioPreviewRequest,
 	AudioPreviewResponse,
+	CheckRequest,
+	CheckResponse,
 	ClozePreviewRequest,
 	ClozePreviewResponse,
 	DeckConfig,
+	ExistingWord,
+	ExistingWordsRequest,
+	ExistingWordsResponse,
 	GenerateRequest,
 	GenerateResponse,
 	HealthResponse,
@@ -140,6 +145,31 @@ def add_cards(
 	except services.PreflightError as e:
 		raise HTTPException(503, str(e)) from e
 	return AddResponse(results=results)
+
+
+@app.post("/api/cards/check", response_model=CheckResponse)
+def check_cards(
+	req: CheckRequest, settings: Settings = Depends(settings_dep)
+) -> CheckResponse:
+	"""Which of these cards Anki already has. Read-only."""
+	try:
+		duplicates = services.duplicate_ids(req.cards, settings)
+	except Exception as e:
+		raise HTTPException(503, f"Anki is not reachable: {e}") from e
+	return CheckResponse(duplicates=[c.id for c in req.cards if c.id in duplicates])
+
+
+@app.post("/api/words/existing", response_model=ExistingWordsResponse)
+def existing_words(req: ExistingWordsRequest) -> ExistingWordsResponse:
+	"""How many notes each input line already has, before any Mistral call."""
+	texts = [t.strip() for t in req.texts if t.strip()]
+	try:
+		counts = services.existing_word_notes(texts)
+	except Exception as e:
+		raise HTTPException(503, f"Anki is not reachable: {e}") from e
+	return ExistingWordsResponse(
+		results=[ExistingWord(text=t, notes=n) for t, n in counts.items()]
+	)
 
 
 # ---------------------------------------------------------------------------

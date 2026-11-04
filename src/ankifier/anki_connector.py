@@ -62,14 +62,14 @@ def store_media_file(filename: str, path: str) -> None:
 	)
 
 
-def add_cloze_note(
+def cloze_note(
 	deck_name: str,
 	cloze_text: str,
 	back_extra: str,
 	audio_filename: str | None = None,
 	tags: list[str] | None = None,
-) -> int:
-	note = {
+) -> dict:
+	return {
 		"deckName": deck_name,
 		"modelName": "Cloze",
 		"fields": {
@@ -84,20 +84,18 @@ def add_cloze_note(
 		},
 	}
 
-	return _invoke("addNote", {"note": note})
 
-
-def add_basic_note(
+def basic_note(
 	deck_name: str,
 	front: str,
 	back: str,
 	audio_filename: str | None = None,
 	tags: list[str] | None = None,
-) -> int:
+) -> dict:
 	if audio_filename:
 		back = f"{back} [sound:{audio_filename}]"
 
-	note = {
+	return {
 		"deckName": deck_name,
 		"modelName": "Basic",
 		"fields": {
@@ -110,4 +108,34 @@ def add_basic_note(
 		},
 	}
 
+
+def add_cloze_note(
+	deck_name: str,
+	cloze_text: str,
+	back_extra: str,
+	audio_filename: str | None = None,
+	tags: list[str] | None = None,
+) -> int:
+	note = cloze_note(deck_name, cloze_text, back_extra, audio_filename, tags)
 	return _invoke("addNote", {"note": note})
+
+
+def add_basic_note(
+	deck_name: str,
+	front: str,
+	back: str,
+	audio_filename: str | None = None,
+	tags: list[str] | None = None,
+) -> int:
+	note = basic_note(deck_name, front, back, audio_filename, tags)
+	return _invoke("addNote", {"note": note})
+
+
+def can_add_notes(notes: list[dict]) -> list[bool]:
+	"""Whether addNote would accept each note. False also covers a deck or note
+	type that does not exist, not only a duplicate."""
+	return _invoke("canAddNotes", {"notes": notes}) or []
+
+
+def find_notes(query: str) -> list[int]:
+	return _invoke("findNotes", {"query": query}) or []

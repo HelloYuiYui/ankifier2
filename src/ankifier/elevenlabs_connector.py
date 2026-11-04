@@ -23,6 +23,13 @@ def sanitize_filename(text: str) -> str:
 	return text
 
 
+def audio_stem(text: str) -> str:
+	"""The readable part of an audio filename. services.existing_word_notes
+	searches Anki for it, so changing it hides every note made before."""
+	# sanitize_filename returns "" for all-punctuation input.
+	return sanitize_filename(text)[:40] or "card"
+
+
 def audio_filename(
 	text: str, stem: str | None = None, *, voice_id: str | None = None
 ) -> str:
@@ -40,9 +47,7 @@ def audio_filename(
 	digest = hashlib.sha1(
 		f"{voice}|{settings.elevenlabs_model}|{text}".encode()
 	).hexdigest()[:10]
-	# sanitize_filename returns "" for all-punctuation input.
-	safe = sanitize_filename(stem or text)[:40] or "card"
-	return f"{safe}_{digest}.mp3"
+	return f"{audio_stem(stem or text)}_{digest}.mp3"
 
 
 def generate_audio(

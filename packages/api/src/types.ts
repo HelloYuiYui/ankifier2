@@ -155,6 +155,22 @@ export interface AddResponse {
 	results: AddResult[]
 }
 
+// --- /api/cards/check, /api/words/existing ----------------------------------
+export interface CheckResponse {
+	/** Ids Anki already has. /api/cards/add skips these itself, before any TTS. */
+	duplicates: string[]
+}
+
+export interface ExistingWord {
+	text: string
+	/** Notes whose audio was made for this input line, whatever their sentence. */
+	notes: number
+}
+
+export interface ExistingWordsResponse {
+	results: ExistingWord[]
+}
+
 // --- /api/audio ------------------------------------------------------------
 export interface AudioPreviewResponse {
 	audioUrl: string

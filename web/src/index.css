@@ -288,6 +288,9 @@ tr.needs-cloze td {
 .muted {
 	color: var(--muted);
 }
+.warn {
+	color: var(--warn);
+}
 .small {
 	font-size: 0.8rem;
 }
