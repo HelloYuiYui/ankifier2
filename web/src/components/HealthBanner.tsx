@@ -1,3 +1,4 @@
+import { Banner } from './Banner'
 import { useHealth } from '../lib/useHealth'
 
 /**
@@ -9,9 +10,9 @@ export function HealthBanner() {
 
 	if (unreachable) {
 		return (
-			<div className="banner error">
+			<Banner tone="error">
 				{unreachable} Start it with <code>poetry run ankifier</code>.
-			</div>
+			</Banner>
 		)
 	}
 
@@ -31,10 +32,10 @@ export function HealthBanner() {
 	if (!problems.length) return null
 
 	return (
-		<div className="banner warn">
+		<Banner tone="warn">
 			{problems.map((p) => (
 				<div key={p}>{p}</div>
 			))}
-		</div>
+		</Banner>
 	)
 }

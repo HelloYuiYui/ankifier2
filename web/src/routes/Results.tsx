@@ -1,6 +1,8 @@
 import { Link, useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
+import { Banner } from '../components/Banner'
+import { EmptyState } from '../components/EmptyState'
 import { StatusBadge } from '../components/StatusBadge'
 import { useAsyncAction } from '../lib/useAsyncAction'
 import { useBatch } from '../store/batch'
@@ -22,14 +24,7 @@ export function Results() {
 	const busy = pending !== null
 
 	if (!results?.length) {
-		return (
-			<div className="panel">
-				<p className="empty">
-					No results yet. Start from <Link to="/">Generate</Link> or{' '}
-					<Link to="/manual">Manual</Link>.
-				</p>
-			</div>
-		)
+		return <EmptyState>No results yet.</EmptyState>
 	}
 
 	const byId = new Map(drafts.map((d) => [d.id, d]))
@@ -60,10 +55,10 @@ export function Results() {
 			</h2>
 
 			{wasDryRun && (
-				<div className="banner warn">
+				<Banner tone="warn">
 					Nothing was written to Anki and no audio was generated.{' '}
 					<Link to="/review">Go back</Link> to add them for real.
-				</div>
+				</Banner>
 			)}
 
 			<div className="scroll">
@@ -98,11 +93,7 @@ export function Results() {
 												controls
 												preload="none"
 												src={r.audioUrl}
-												style={{
-													display: 'block',
-													marginTop: 6,
-													height: 30,
-												}}
+												className="player"
 											/>
 										)}
 									</td>
@@ -116,11 +107,7 @@ export function Results() {
 				</table>
 			</div>
 
-			{error && (
-				<div className="banner error" style={{ marginTop: 14 }}>
-					{error}
-				</div>
-			)}
+			{error && <Banner tone="error">{error}</Banner>}
 
 			<div className="actions">
 				<button
@@ -131,8 +118,8 @@ export function Results() {
 				>
 					Start over
 				</button>
-				<Link to="/review">
-					<button>Back to review</button>
+				<Link to="/review" className="button">
+					Back to review
 				</Link>
 				<span className="spacer" />
 				{failed.length > 0 && !wasDryRun && (

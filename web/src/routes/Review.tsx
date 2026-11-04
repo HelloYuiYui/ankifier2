@@ -4,8 +4,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { needsCloze } from '@ankifier/api'
 
 import { api } from '../api/client'
+import { Banner } from '../components/Banner'
 import { ClozePreview } from '../components/ClozePreview'
 import { EditableCell } from '../components/EditableCell'
+import { EmptyState } from '../components/EmptyState'
 import type { CardDraft } from '../api/types'
 import { keptDrafts, useBatch } from '../store/batch'
 import { useAsyncAction } from '../lib/useAsyncAction'
@@ -89,14 +91,7 @@ export function Review() {
 	}
 
 	if (!drafts.length) {
-		return (
-			<div className="panel">
-				<p className="empty">
-					Nothing to review yet. Start from <Link to="/">Generate</Link> or{' '}
-					<Link to="/manual">Manual</Link>.
-				</p>
-			</div>
-		)
+		return <EmptyState>Nothing to review yet.</EmptyState>
 	}
 
 	const edit = (id: string, field: keyof CardDraft) => (next: string) =>
@@ -107,7 +102,7 @@ export function Review() {
 			<h2>
 				Review — {kept.length} of {drafts.length} selected
 			</h2>
-			<p className="small muted" style={{ marginTop: 0 }}>
+			<p className="intro">
 				Click the spoken text, card front, back or tags to edit it. Tags are
 				comma-separated and are added to the level and word-class tags. Editing
 				the spoken text gives the card its own audio file — it never overwrites
@@ -117,7 +112,7 @@ export function Review() {
 			</p>
 
 			{errors.length > 0 && (
-				<div className="banner warn">
+				<Banner tone="warn">
 					{errors.length} row{errors.length > 1 ? 's' : ''} produced nothing
 					and cannot be added:
 					{errors.map((e) => (
@@ -125,38 +120,38 @@ export function Review() {
 							<strong>{e.text}</strong> — {e.message}
 						</div>
 					))}
-				</div>
+				</Banner>
 			)}
 
 			{unclozed.length > 0 && (
-				<div className="banner warn">
+				<Banner tone="warn">
 					{unclozed.length} card{unclozed.length > 1 ? 's have' : ' has'} no
 					cloze because the hidden text was not found in the sentence. Mark it
 					in the card front as <code>{'{{c1::text::hint}}'}</code>, or untick
 					the card, before adding.
-				</div>
+				</Banner>
 			)}
 
 			{keptDuplicates.length > 0 && (
-				<div className="banner warn">
+				<Banner tone="warn">
 					{keptDuplicates.length} card
 					{keptDuplicates.length > 1 ? 's are' : ' is'} already in Anki and
 					will be skipped without generating audio. Edit the card front to
 					make it a new card, or untick it.
-				</div>
+				</Banner>
 			)}
 
 			<div className="scroll">
-				<table>
+				<table className="review-table">
 					<thead>
 						<tr>
 							<th>Keep</th>
 							<th>Word</th>
 							{showSenses && <th>Sense</th>}
-							<th style={{ width: '21%' }}>Spoken text</th>
-							<th style={{ width: '26%' }}>Card front</th>
-							<th style={{ width: '16%' }}>Back</th>
-							<th style={{ width: '12%' }}>Tags</th>
+							<th className="spoken">Spoken text</th>
+							<th className="front">Card front</th>
+							<th className="back">Back</th>
+							<th className="tags">Tags</th>
 							{showSenses && <th>Level</th>}
 						</tr>
 					</thead>
@@ -273,15 +268,11 @@ export function Review() {
 				</table>
 			</div>
 
-			{error && (
-				<div className="banner error" style={{ marginTop: 14 }}>
-					{error}
-				</div>
-			)}
+			{error && <Banner tone="error">{error}</Banner>}
 
 			<div className="actions">
-				<Link to={source === 'manual' ? '/manual' : '/'}>
-					<button>Back</button>
+				<Link to={source === 'manual' ? '/manual' : '/'} className="button">
+					Back
 				</Link>
 				<button onClick={() => setAllKeep(kept.length !== drafts.length)}>
 					{kept.length === drafts.length ? 'Untick all' : 'Tick all'}
