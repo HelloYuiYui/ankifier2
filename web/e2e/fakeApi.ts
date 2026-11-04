@@ -40,15 +40,11 @@ export const health: HealthResponse = {
 
 const MARKER_RE = /\[\[(.+?)\]\]/g
 
-/** Enough of cloze.render for the tests: `[[word:hint]]` -> `{{cN::word::hint}}`. */
+/** Enough of cloze.render for the tests: `[[word:hint]]` -> `{{c1::word::hint}}`. */
 function render(text: string): { plain: string; cloze: string } {
-	let n = 0
 	const cloze = text.replace(MARKER_RE, (_, body: string) => {
 		const [word, ...hint] = body.split(':')
-		n++
-		return hint.length
-			? `{{c${n}::${word}::${hint.join(':')}}}`
-			: `{{c${n}::${word}}}`
+		return hint.length ? `{{c1::${word}::${hint.join(':')}}}` : `{{c1::${word}}}`
 	})
 	const plain = text.replace(MARKER_RE, (_, body: string) => body.split(':')[0])
 	return { plain, cloze }

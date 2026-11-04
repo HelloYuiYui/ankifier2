@@ -64,10 +64,11 @@ To generate using your own custom sentence as a cloze card, put your target word
 |---|---|
 | `Le [[chat]] dort` | `Le {{c1::chat}} dort` |
 | `Il faut que tu [[sois:être]] là` | `Il faut que tu {{c1::sois::être}} là` |
-| `[[a]] et [[b]]` | `{{c1::a}} et {{c2::b}}` |
+| `[[a]] et [[b]]` | `{{c1::a}} et {{c1::b}}` |
 
 Everything after the first colon is the hint Anki shows on the card; a hint is
-never read aloud. 
+never read aloud. Every marker is `c1`, so several markers are hidden together on one
+card rather than becoming one card each. 
 
 On the manual page each row has an **Audio** toggle: *Front* (the default) reads
 the sentence you typed, *Back* reads the text in the Back column instead. Pick
@@ -157,7 +158,7 @@ Mark the part of a sentence to hide with double brackets:
 |---|---|
 | `Le [[chat]] dort` | `Le {{c1::chat}} dort` |
 | `Il faut que tu [[sois:être]] là` | `Il faut que tu {{c1::sois::être}} là` |
-| `[[a]] et [[b]]` | `{{c1::a}} et {{c2::b}}` |
+| `[[a]] et [[b]]` | `{{c1::a}} et {{c1::b}}` |
 
 Everything after the first colon is the hint Anki shows on the card; a hint is
 never read aloud. Hyphens are ordinary characters, so `est-ce` and `rendez-vous`

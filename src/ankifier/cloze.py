@@ -43,8 +43,12 @@ def render(
 
 	plain_text goes to Mistral and ElevenLabs and never contains a hint;
 	cloze_text is what Anki stores. Hints come from `part_hints` positionally, or
-	from [[word:hint]] with inline_hints=True. An empty hint gives {{cN::text}},
+	from [[word:hint]] with inline_hints=True. An empty hint gives {{c1::text}},
 	since an empty ::hint renders as a stray "[...]".
+
+	Every marker is c1, so all of them are hidden together on one card. A
+	sentence marks more than one part when the word repeats in it, and c1, c2
+	would instead make one card per marker, each giving the others away.
 	"""
 	part_hints = part_hints or []
 	plain: list[str] = []
@@ -62,9 +66,7 @@ def render(
 		else:
 			hint = part_hints[n - 1] if n - 1 < len(part_hints) else ""
 		plain.append(body)
-		cloze.append(
-			f"{{{{c{n}::{body}::{hint}}}}}" if hint else f"{{{{c{n}::{body}}}}}"
-		)
+		cloze.append(f"{{{{c1::{body}::{hint}}}}}" if hint else f"{{{{c1::{body}}}}}")
 		pos = match.end()
 
 	tail = _strip_stray_markers(text[pos:])

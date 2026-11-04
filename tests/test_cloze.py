@@ -36,18 +36,18 @@ POSITIONAL = [
 		"Je {{c1::mange}} une pomme",
 	),
 	(
-		"two markers number c1, c2 in order of appearance",
+		"every marker is c1, so they are hidden on one card",
 		"Je [[mange]] une [[pomme]]",
 		["eat", "apple"],
 		"Je mange une pomme",
-		"Je {{c1::mange::eat}} une {{c2::pomme::apple}}",
+		"Je {{c1::mange::eat}} une {{c1::pomme::apple}}",
 	),
 	(
 		"fewer hints than markers -- the surplus marker goes bare",
 		"Je [[mange]] une [[pomme]]",
 		["eat"],
 		"Je mange une pomme",
-		"Je {{c1::mange::eat}} une {{c2::pomme}}",
+		"Je {{c1::mange::eat}} une {{c1::pomme}}",
 	),
 	(
 		"more hints than markers -- the surplus hint is dropped",
@@ -179,7 +179,7 @@ INLINE = [
 		"hint never reaches plain text -- TTS must not read it aloud",
 		"Je [[mange:to eat]] une [[pomme:apple]]",
 		"Je mange une pomme",
-		"Je {{c1::mange::to eat}} une {{c2::pomme::apple}}",
+		"Je {{c1::mange::to eat}} une {{c1::pomme::apple}}",
 	),
 ]
 
@@ -260,7 +260,7 @@ def test_adjacent_markers_do_not_merge():
 	"""Non-greedy matching: two markers, not one spanning the middle."""
 	plain, cloze_text = cloze.render("[[a]] et [[b]]", ["A", "B"])
 	assert plain == "a et b"
-	assert cloze_text == "{{c1::a::A}} et {{c2::b::B}}"
+	assert cloze_text == "{{c1::a::A}} et {{c1::b::B}}"
 
 
 # ---------------------------------------------------------------------------
