@@ -30,6 +30,7 @@ web/                    React 19 + TS + Vite + zustand + react-router (pnpm)
   src/api/              re-exports @ankifier/api (+ web-only types); api = createClient({base: ''})
   src/store/batch.ts    client-side batch state, persisted to localStorage
   src/routes/           GenerateInput (/), ManualInput (/manual), Review, Results
+  e2e/                  Playwright smoke tests; every /api call faked in the browser (fakeApi.ts)
 extension/              Chrome MV3 extension, WXT + React (imports: false -> explicit imports)
   entrypoints/background.ts  the ONLY extension code that fetches (see "Extension" below)
   entrypoints/content/  shadow-root UI mounting src/Bubble.tsx on every page
@@ -123,6 +124,8 @@ poetry run ankifier            # API on :8000 (also serves web build if present)
 cd web && pnpm dev             # UI on :5173, proxies /api -> 127.0.0.1:8000
 pnpm build:ext / pnpm dev:ext  # extension -> extension/.output/chrome-mv3 (load unpacked)
 pnpm --filter extension test   # vitest (context.ts)
+pnpm --filter web test         # vitest (lib/)
+pnpm --filter web test:e2e     # Playwright, /api faked in the browser (web/e2e/fakeApi.ts)
 poetry run pytest -q
 poetry run ruff check . && poetry run ruff format --check .
 pnpm format:check && pnpm lint && pnpm typecheck   # from repo root; pnpm -r over all 3 packages
