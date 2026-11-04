@@ -74,6 +74,19 @@ export function generatedDraft(overrides: Partial<CardDraft>): CardDraft {
 	}
 }
 
+export interface FakeOptions {
+	/** What /api/generate answers. */
+	generated?: GenerateResponse
+	/** How long /api/cloze/preview takes to answer. */
+	previewDelayMs?: number
+	/** Card ids Anki already has. */
+	duplicates?: string[]
+	/** Input line -> notes Anki already has for it. */
+	existingWords?: Record<string, number>
+	/** Makes /api/cards/add answer 503 with this detail. */
+	addFails?: string
+}
+
 export async function fakeApi(
 	page: Page,
 	{
@@ -81,14 +94,8 @@ export async function fakeApi(
 		previewDelayMs = 0,
 		duplicates = [],
 		existingWords = {},
-	}: {
-		generated?: GenerateResponse
-		previewDelayMs?: number
-		/** Card ids Anki already has. */
-		duplicates?: string[]
-		/** Input line -> notes Anki already has for it. */
-		existingWords?: Record<string, number>
-	} = {},
+		addFails,
+	}: FakeOptions = {},
 ): Promise<FakeApi> {
 	const api: FakeApi = { added: [], unexpected: [] }
 	const json = (route: Route, body: unknown) => route.fulfill({ json: body })
@@ -137,6 +144,8 @@ export async function fakeApi(
 		if (path === '/api/cards/add') {
 			const req = request.postDataJSON() as AddRequest
 			api.added.push(req)
+			if (addFails)
+				return route.fulfill({ status: 503, json: { detail: addFails } })
 			const body: AddResponse = {
 				results: req.cards.map((c) => ({
 					id: c.id,

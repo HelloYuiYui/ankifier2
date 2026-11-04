@@ -2,7 +2,7 @@ import { generatedDraft } from './fakeApi'
 import { expect, test } from './test'
 
 // One card that matched and one whose hidden text Mistral could not place.
-test.use({
+const fake = {
 	generated: {
 		cards: [
 			generatedDraft({}),
@@ -19,7 +19,9 @@ test.use({
 		],
 		errors: [],
 	},
-})
+}
+
+test.use({ fake })
 
 test.beforeEach(async ({ page, api: _ }) => {
 	await page.goto('/')
@@ -67,7 +69,7 @@ test('unticking the card unblocks the rest', async ({ page, api }) => {
 })
 
 test.describe('with a card Anki already has', () => {
-	test.use({ duplicates: ['g#1'] })
+	test.use({ fake: { ...fake, duplicates: ['g#1'] } })
 
 	test('it is marked, and editing its front clears the mark', async ({ page }) => {
 		const row = page.getByRole('row').filter({ hasText: 'The ice melts.' })
@@ -79,5 +81,19 @@ test.describe('with a card Anki already has', () => {
 		await front.fill('{{c1::La glace::ice}} fond vite.')
 		await front.blur()
 		await expect(row.getByText('already in Anki')).toBeHidden()
+	})
+})
+
+test.describe('when the add fails', () => {
+	test.use({ fake: { ...fake, addFails: 'Anki is not reachable' } })
+
+	test('the error is shown and the cards stay to retry', async ({ page }) => {
+		await unclozedRow(page).getByRole('checkbox').uncheck()
+		const add = page.getByRole('button', { name: 'Add 1 to Anki' })
+		await add.click()
+
+		await expect(page.getByText('Anki is not reachable')).toBeVisible()
+		await expect(page).toHaveURL(/\/review$/)
+		await expect(add).toBeEnabled()
 	})
 })

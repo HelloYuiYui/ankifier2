@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
-import { ApiError, api } from '../api/client'
-import type { GenerateRow, GenerateRowInput } from '../api/types'
+import { api } from '../api/client'
+import type { GenerateRow } from '../api/types'
 import { emptyGenerateRow, useBatch } from '../store/batch'
+import { rowActions } from '../lib/rows'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { useDebounced } from '../lib/useDebounced'
 import PanelHeader from '../components/common/PanelHeader'
 import PANEL_CONSTANTS from '../components/common/panelConstants'
@@ -16,8 +18,13 @@ export function GenerateInput() {
 	const setDrafts = useBatch((s) => s.setDrafts)
 	const fail = useBatch((s) => s.fail)
 
-	const [busy, setBusy] = useState(false)
-	const [error, setError] = useState<string | null>(null)
+	const { run, pending, error, setError } = useAsyncAction()
+	const busy = pending !== null
+	const {
+		patch,
+		add: addRow,
+		remove: removeRow,
+	} = rowActions(rows, setRows, emptyGenerateRow)
 	const lastInput = useRef<HTMLInputElement | null>(null)
 
 	// Text -> notes Anki already has for it, before any Mistral call. As-is rows
@@ -49,16 +56,6 @@ export function GenerateInput() {
 		}
 	}, [words])
 
-	const patch = (id: string, change: Partial<GenerateRowInput>) =>
-		setRows(rows.map((r) => (r.id === id ? { ...r, ...change } : r)))
-
-	const addRow = () => setRows([...rows, emptyGenerateRow()])
-
-	const removeRow = (id: string) => {
-		const kept = rows.filter((r) => r.id !== id)
-		setRows(kept.length ? kept : [emptyGenerateRow()])
-	}
-
 	const onKeyDown = (e: React.KeyboardEvent, index: number) => {
 		if (e.key !== 'Enter') return
 		// Enter adds a row rather than submitting -- submitting by accident costs
@@ -84,26 +81,24 @@ export function GenerateInput() {
 			return
 		}
 
-		setBusy(true)
-		setError(null)
 		startWorking('generate')
-		try {
-			const { cards, errors } = await api.generate(payload)
-			if (!cards.length && errors.length) {
-				// Nothing to review, so stay here and say why.
-				fail(errors.map((e) => `${e.text}: ${e.message}`).join('\n'))
-				setError(errors.map((e) => `${e.text}: ${e.message}`).join('\n'))
-				return
-			}
-			setDrafts(cards, errors)
-			void navigate('/review')
-		} catch (e) {
-			const message = e instanceof ApiError ? e.message : String(e)
-			fail(message)
-			setError(message)
-		} finally {
-			setBusy(false)
-		}
+		await run(
+			async () => {
+				const { cards, errors } = await api.generate(payload)
+				if (!cards.length && errors.length) {
+					// Nothing to review, so stay here and say why.
+					const message = errors
+						.map((e) => `${e.text}: ${e.message}`)
+						.join('\n')
+					fail(message)
+					setError(message)
+					return
+				}
+				setDrafts(cards, errors)
+				void navigate('/review')
+			},
+			{ onError: fail },
+		)
 	}
 
 	return (

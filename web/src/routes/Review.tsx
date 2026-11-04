@@ -3,11 +3,12 @@ import { Link, useNavigate } from 'react-router-dom'
 
 import { needsCloze } from '@ankifier/api'
 
-import { ApiError, api } from '../api/client'
+import { api } from '../api/client'
 import { ClozePreview } from '../components/ClozePreview'
 import { EditableCell } from '../components/EditableCell'
 import type { CardDraft } from '../api/types'
 import { keptDrafts, useBatch } from '../store/batch'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { useDebounced } from '../lib/useDebounced'
 
 /** The first field Anki compares for duplicates, whichever note type it is. */
@@ -32,9 +33,9 @@ export function Review() {
 	const updateDraft = useBatch((s) => s.updateDraft)
 	const startAdding = useBatch((s) => s.startAdding)
 	const setResults = useBatch((s) => s.setResults)
+	const fail = useBatch((s) => s.fail)
 
-	const [busy, setBusy] = useState<'dry' | 'real' | null>(null)
-	const [error, setError] = useState<string | null>(null)
+	const { run, pending: busy, error, setError } = useAsyncAction<'dry' | 'real'>()
 
 	const kept = keptDrafts({ drafts, keep })
 	const showSenses = drafts.some((d) => d.kind === 'generated')
@@ -76,20 +77,15 @@ export function Review() {
 			return
 		}
 		if (unclozed.length) return
-		setBusy(dryRun ? 'dry' : 'real')
-		setError(null)
 		startAdding()
-		try {
-			const { results } = await api.addCards({ cards: kept, dryRun })
-			setResults(results)
-			void navigate('/results')
-		} catch (e) {
-			const message = e instanceof ApiError ? e.message : String(e)
-			setError(message)
-			useBatch.getState().fail(message)
-		} finally {
-			setBusy(null)
-		}
+		await run(
+			async () => {
+				const { results } = await api.addCards({ cards: kept, dryRun })
+				setResults(results)
+				void navigate('/results')
+			},
+			{ key: dryRun ? 'dry' : 'real', onError: fail },
+		)
 	}
 
 	if (!drafts.length) {

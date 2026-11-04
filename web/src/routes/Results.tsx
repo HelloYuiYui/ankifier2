@@ -1,8 +1,8 @@
-import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 
-import { ApiError, api } from '../api/client'
+import { api } from '../api/client'
 import { StatusBadge } from '../components/StatusBadge'
+import { useAsyncAction } from '../lib/useAsyncAction'
 import { useBatch } from '../store/batch'
 
 /**
@@ -18,8 +18,8 @@ export function Results() {
 	const setResults = useBatch((s) => s.setResults)
 	const resetAll = useBatch((s) => s.resetAll)
 
-	const [busy, setBusy] = useState(false)
-	const [error, setError] = useState<string | null>(null)
+	const { run, pending, error } = useAsyncAction()
+	const busy = pending !== null
 
 	if (!results?.length) {
 		return (
@@ -43,18 +43,12 @@ export function Results() {
 		const cards = failed.map((r) => byId.get(r.id)).filter((d) => d !== undefined)
 		if (!cards.length) return
 
-		setBusy(true)
-		setError(null)
-		try {
+		await run(async () => {
 			const { results: fresh } = await api.addCards({ cards })
 			// Splice the retried results back in, leaving the rest as they were.
 			const updated = new Map(fresh.map((r) => [r.id, r]))
 			setResults(results.map((r) => updated.get(r.id) ?? r))
-		} catch (e) {
-			setError(e instanceof ApiError ? e.message : String(e))
-		} finally {
-			setBusy(false)
-		}
+		})
 	}
 
 	return (
