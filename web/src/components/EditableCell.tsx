@@ -11,18 +11,21 @@ import { useLayoutEffect, useRef, useState } from 'react'
  * Edits go straight to the store as they are typed -- the cloze preview under
  * the card-front cell depends on that -- so leaving the cell commits nothing,
  * it only stops editing. Escape puts the value back to what it was when the
- * cell was opened.
+ * cell was opened. Focus opens it too, so tabbing through a row edits it
+ * without a click per cell.
  */
 export function EditableCell({
 	value,
 	onChange,
 	label,
+	placeholder,
 	className,
 }: {
 	value: string
 	onChange: (next: string) => void
 	/** Names the textarea, which has no visible label of its own. */
 	label: string
+	placeholder?: string
 	className?: string
 }) {
 	const [editing, setEditing] = useState(false)
@@ -48,18 +51,25 @@ export function EditableCell({
 		el.setSelectionRange(el.value.length, el.value.length)
 	}, [editing])
 
+	const open = () => {
+		opened.current = value
+		setEditing(true)
+	}
+
 	if (!editing) {
 		return (
 			<button
 				type="button"
 				className={className ? `cell ${className}` : 'cell'}
 				title="Click to edit"
-				onClick={() => {
-					opened.current = value
-					setEditing(true)
-				}}
+				onClick={open}
+				onFocus={open}
 			>
-				{value || <span className="muted">Add {label.toLowerCase()}</span>}
+				{value || (
+					<span className="muted">
+						{placeholder ?? `Add ${label.toLowerCase()}`}
+					</span>
+				)}
 			</button>
 		)
 	}
@@ -70,6 +80,7 @@ export function EditableCell({
 			rows={2}
 			className={className}
 			aria-label={label}
+			placeholder={placeholder}
 			value={value}
 			onChange={(e) => {
 				fit(e.currentTarget)

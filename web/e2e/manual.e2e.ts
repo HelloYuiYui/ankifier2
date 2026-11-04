@@ -1,4 +1,4 @@
-import { expect, test } from './test'
+import { expect, fillManualCell, test } from './test'
 
 test.beforeEach(async ({ page, api: _ }) => {
 	await page.goto('/manual')
@@ -11,14 +11,11 @@ test.describe('with a slow preview', () => {
 		page,
 		api,
 	}) => {
-		const fronts = page.getByPlaceholder('Il faut que tu [[sois:être]] là')
-		const backs = page.getByPlaceholder('You have to be there')
-
-		await fronts.nth(0).fill('Il faut que tu [[sois:être]] là')
-		await backs.nth(0).fill('You have to be there')
+		await fillManualCell(page, 0, 'Front', 'Il faut que tu [[sois:être]] là')
+		await fillManualCell(page, 0, 'Back', 'You have to be there')
 		await page.getByRole('button', { name: 'Add row' }).click()
-		await fronts.nth(1).fill('bonjour')
-		await backs.nth(1).fill('hello')
+		await fillManualCell(page, 1, 'Front', 'bonjour')
+		await fillManualCell(page, 1, 'Back', 'hello')
 		// The debounced preview is still in flight here: Review must fetch its own
 		// render rather than let the raw [[...]] text through.
 		await page.getByRole('button', { name: 'Review' }).click()
@@ -62,7 +59,7 @@ for (const [label, language, deckTarget] of [
 	test(`the ${label} deck toggle reaches the request`, async ({ page, api }) => {
 		await page.getByRole('radio', { name: label }).click()
 		await expect(page.getByRole('radio', { name: label })).toBeChecked()
-		await page.getByPlaceholder('Il faut que tu [[sois:être]] là').fill('bonjour')
+		await fillManualCell(page, 0, 'Front', 'bonjour')
 		await page.getByRole('button', { name: 'Review' }).click()
 		await page.getByRole('button', { name: 'Add 1 to Anki' }).click()
 		await expect(page.getByRole('heading', { level: 2 })).toHaveText(
@@ -74,3 +71,15 @@ for (const [label, language, deckTarget] of [
 		expect(card.deckTarget ?? null).toBe(deckTarget)
 	})
 }
+
+test('Tab moves from the front straight into editing the back', async ({ page }) => {
+	await page.getByRole('button', { name: 'Il faut que tu [[sois:être]] là' }).click()
+	await page.keyboard.type('bonjour')
+	await page.keyboard.press('Tab')
+	await page.keyboard.type('hello')
+	await page.keyboard.press('Tab')
+
+	const row = page.locator('tbody tr').first()
+	await expect(row.locator('button.cell').nth(0)).toHaveText('bonjour')
+	await expect(row.locator('button.cell').nth(1)).toHaveText('hello')
+})
