@@ -2,13 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
+import { Banner } from '../components/Banner'
 import type { GenerateRow } from '../api/types'
 import { emptyGenerateRow, useBatch } from '../store/batch'
 import { rowActions } from '../lib/rows'
 import { useAsyncAction } from '../lib/useAsyncAction'
 import { useDebounced } from '../lib/useDebounced'
-import PanelHeader from '../components/common/PanelHeader'
-import PANEL_CONSTANTS from '../components/common/panelConstants'
 
 export function GenerateInput() {
 	const navigate = useNavigate()
@@ -103,16 +102,18 @@ export function GenerateInput() {
 
 	return (
 		<div className="panel">
-			<PanelHeader
-				title={PANEL_CONSTANTS.generateTitle}
-				description={PANEL_CONSTANTS.generateDescription}
-			/>
+			<h2>Words to generate</h2>
+			<p className="intro">
+				One word or phrase per row. Tick <strong>As is</strong> to keep the text
+				exactly as typed — it is only translated, and any <code>[[…]]</code> you
+				mark becomes the cloze deletion.
+			</p>
 
 			<div className="scroll">
 				<table>
 					<thead>
 						<tr>
-							<th style={{ width: '100%' }}>Word or phrase</th>
+							<th className="grow">Word or phrase</th>
 							<th>As is</th>
 							<th />
 						</tr>
@@ -179,11 +180,7 @@ export function GenerateInput() {
 				</table>
 			</div>
 
-			{error && (
-				<div className="banner error" style={{ marginTop: 14 }}>
-					{error}
-				</div>
-			)}
+			{error && <Banner tone="error">{error}</Banner>}
 
 			<div className="actions">
 				<button onClick={addRow}>Add row</button>

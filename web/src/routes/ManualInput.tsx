@@ -2,6 +2,7 @@ import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 import { api } from '../api/client'
+import { Banner } from '../components/Banner'
 import { ClozePreview } from '../components/ClozePreview'
 import type {
 	CardDraft,
@@ -193,7 +194,7 @@ export function ManualInput() {
 	return (
 		<div className="panel">
 			<h2>Cards to write by hand</h2>
-			<p className="small muted" style={{ marginTop: 0 }}>
+			<p className="intro">
 				Nothing here touches the Mistral AI. Mark what to hide as{' '}
 				<code>[[word]]</code>, or <code>[[word:hint]]</code> to show a hint on
 				the card. A front without markers becomes a plain front/back card. A CSV
@@ -201,7 +202,7 @@ export function ManualInput() {
 				<code>front</code> or <code>back</code>), by position or by a header
 				naming them.
 			</p>
-			<p className="small muted" style={{ marginTop: 0 }}>
+			<p className="intro">
 				<strong>Audio</strong> picks which side is read aloud — switch a row to{' '}
 				<em>Back</em> when hearing the front would give the answer away, as it
 				would for a conjugation you mean to produce from memory. The sound sits
@@ -224,11 +225,11 @@ export function ManualInput() {
 			</div>
 
 			<div className="scroll">
-				<table>
+				<table className="manual-table">
 					<thead>
 						<tr>
-							<th style={{ width: '44%' }}>Front</th>
-							<th style={{ width: '34%' }}>Back</th>
+							<th className="front">Front</th>
+							<th className="back">Back</th>
 							<th>Audio</th>
 							<th />
 						</tr>
@@ -306,16 +307,8 @@ export function ManualInput() {
 				</table>
 			</div>
 
-			{error && (
-				<div className="banner error" style={{ marginTop: 14 }}>
-					{error}
-				</div>
-			)}
-			{notice && !error && (
-				<div className="banner ok" style={{ marginTop: 14 }}>
-					{notice}
-				</div>
-			)}
+			{error && <Banner tone="error">{error}</Banner>}
+			{notice && !error && <Banner tone="ok">{notice}</Banner>}
 
 			<div className="actions">
 				<button onClick={addRow}>Add row</button>
