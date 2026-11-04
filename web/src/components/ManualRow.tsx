@@ -1,6 +1,7 @@
 import type { AudioSide, ClozeResult, ManualRowInput } from '../api/types'
 import { hasMarker, sideOf } from '../lib/manual'
 import { ClozePreview } from './ClozePreview'
+import { EditableCell } from './EditableCell'
 
 export function ManualRow({
 	row,
@@ -16,11 +17,11 @@ export function ManualRow({
 	return (
 		<tr>
 			<td>
-				<textarea
-					rows={1}
-					value={row.front}
+				<EditableCell
+					label="Front"
 					placeholder="Il faut que tu [[sois:être]] là"
-					onChange={(e) => onChange({ front: e.target.value })}
+					value={row.front}
+					onChange={(front) => onChange({ front })}
 				/>
 				{hasMarker(row.front) && (
 					<div className="preview">
@@ -33,11 +34,11 @@ export function ManualRow({
 				)}
 			</td>
 			<td>
-				<textarea
-					rows={1}
-					value={row.back}
+				<EditableCell
+					label="Back"
 					placeholder="You have to be there"
-					onChange={(e) => onChange({ back: e.target.value })}
+					value={row.back}
+					onChange={(back) => onChange({ back })}
 				/>
 			</td>
 			<td>

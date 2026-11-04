@@ -1,4 +1,4 @@
-import { expect, test } from './test'
+import { expect, fillManualCell, manualCell, test } from './test'
 
 const file = (name: string, text: string) => ({
 	name,
@@ -26,10 +26,11 @@ test('an imported CSV fills the manual table and reaches the request', async ({
 	await expect(page.getByText('Imported 2 rows from cards.csv')).toContainText(
 		'skipped 1 without a front',
 	)
-	const fronts = page.getByPlaceholder('Il faut que tu [[sois:être]] là')
-	await expect(fronts).toHaveCount(2)
-	await expect(fronts.nth(0)).toHaveValue('Il faut que tu [[sois:être]] là')
-	await expect(fronts.nth(1)).toHaveValue('Oui; non')
+	await expect(page.locator('tbody tr')).toHaveCount(2)
+	await expect(manualCell(page, 0, 'Front')).toHaveText(
+		'Il faut que tu [[sois:être]] là',
+	)
+	await expect(manualCell(page, 1, 'Front')).toHaveText('Oui; non')
 	const sides = page.getByLabel('Audio from')
 	await expect(sides.nth(0)).toHaveValue('front')
 	await expect(sides.nth(1)).toHaveValue('back')
@@ -49,11 +50,9 @@ test('an imported CSV fills the manual table and reaches the request', async ({
 })
 
 test('a CSV with no fronts is reported and changes nothing', async ({ page }) => {
-	await page.getByPlaceholder('Il faut que tu [[sois:être]] là').fill('déjà là')
+	await fillManualCell(page, 0, 'Front', 'déjà là')
 	await page.getByLabel('CSV file').setInputFiles(file('empty.csv', ',only a back\n'))
 
 	await expect(page.getByText('empty.csv has no rows with a front.')).toBeVisible()
-	await expect(page.getByPlaceholder('Il faut que tu [[sois:être]] là')).toHaveValue(
-		'déjà là',
-	)
+	await expect(manualCell(page, 0, 'Front')).toHaveText('déjà là')
 })
