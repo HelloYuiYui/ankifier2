@@ -31,6 +31,11 @@ const DECK_OPTIONS: { value: ManualDeck; label: string }[] = [
 	{ value: 'bulgarian', label: 'Bulgarian' },
 ]
 
+const SIDE_OPTIONS: { value: AudioSide; label: string }[] = [
+	{ value: 'front', label: 'Front' },
+	{ value: 'back', label: 'Back' },
+]
+
 const deckName = (value: ManualDeck, decks: HealthResponse['decks'] | null) =>
 	({
 		vocabulary: decks?.generated,
@@ -53,6 +58,8 @@ export function ManualInput() {
 	const setDrafts = useBatch((s) => s.setDrafts)
 	const deck = useBatch((s) => s.manualDeck)
 	const setDeck = useBatch((s) => s.setManualDeck)
+	const audioSide = useBatch((s) => s.manualAudioSide)
+	const setAllSides = useBatch((s) => s.setManualAudioSide)
 
 	const decks = useHealth().health?.decks ?? null
 
@@ -102,7 +109,7 @@ export function ManualInput() {
 		patch,
 		add: addRow,
 		remove: removeRow,
-	} = rowActions(rows, setRows, emptyManualRow)
+	} = rowActions(rows, setRows, () => emptyManualRow(audioSide))
 
 	const importCsv = async (e: ChangeEvent<HTMLInputElement>) => {
 		const file = e.target.files?.[0]
@@ -110,9 +117,8 @@ export function ManualInput() {
 		e.target.value = ''
 		if (!file) return
 
-		const { rows: imported, skipped } = manualRowsFromCsv(
-			await file.text(),
-			emptyManualRow,
+		const { rows: imported, skipped } = manualRowsFromCsv(await file.text(), () =>
+			emptyManualRow(audioSide),
 		)
 		if (!imported.length) {
 			setNotice(null)
@@ -196,31 +202,57 @@ export function ManualInput() {
 			<p className="small muted" style={{ marginTop: 0 }}>
 				Nothing here touches the Mistral AI. Mark what to hide as{' '}
 				<code>[[word]]</code>, or <code>[[word:hint]]</code> to show a hint on
-				the card. A front without markers becomes a plain front/back card. A CSV
-				import takes front, back and an optional audio column (
-				<code>front</code> or <code>back</code>), by position or by a header
-				naming them.
+				the card. A front without markers becomes a plain front/back card. A
+				comma-separated CSV import takes front, back and an optional audio
+				column (<code>front</code> or <code>back</code>), by position or by a
+				header naming them.
 			</p>
 			<p className="small muted" style={{ marginTop: 0 }}>
 				<strong>Audio</strong> picks which side is read aloud — switch a row to{' '}
 				<em>Back</em> when hearing the front would give the answer away, as it
-				would for a conjugation you mean to produce from memory. The sound sits
-				on the back of the card either way, so it only plays once you turn the
-				card over.
+				would for a conjugation you mean to produce from memory. The toggle
+				above the table sets every row at once, and new rows follow it; a row's
+				own dropdown still overrides it. The sound sits on the back of the card
+				either way, so it only plays once you turn the card over.
 			</p>
 
-			<div className="segmented" role="radiogroup" aria-label="Deck">
-				{DECK_OPTIONS.map(({ value, label }) => (
-					<button
-						key={value}
-						role="radio"
-						aria-checked={deck === value}
-						className={deck === value ? 'active' : undefined}
-						onClick={() => setDeck(value)}
-					>
-						{deckName(value, decks) ?? label}
-					</button>
-				))}
+			<div className="controls">
+				<div className="segmented" role="radiogroup" aria-label="Deck">
+					{DECK_OPTIONS.map(({ value, label }) => (
+						<button
+							key={value}
+							role="radio"
+							aria-checked={deck === value}
+							className={deck === value ? 'active' : undefined}
+							onClick={() => setDeck(value)}
+						>
+							{deckName(value, decks) ?? label}
+						</button>
+					))}
+				</div>
+
+				{/* Neither is checked while the rows disagree. */}
+				<div
+					className="segmented"
+					role="radiogroup"
+					aria-label="Audio for all rows"
+				>
+					<span className="small muted">Read aloud</span>
+					{SIDE_OPTIONS.map(({ value, label }) => {
+						const all = rows.every((r) => sideOf(r) === value)
+						return (
+							<button
+								key={value}
+								role="radio"
+								aria-checked={all}
+								className={all ? 'active' : undefined}
+								onClick={() => setAllSides(value)}
+							>
+								{label}
+							</button>
+						)
+					})}
+				</div>
 			</div>
 
 			<div className="scroll">
@@ -323,7 +355,7 @@ export function ManualInput() {
 				<input
 					ref={fileInput}
 					type="file"
-					accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values"
+					accept=".csv,.txt,text/csv"
 					aria-label="CSV file"
 					hidden
 					onChange={(e) => void importCsv(e)}

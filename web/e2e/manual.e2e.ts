@@ -74,3 +74,38 @@ for (const [label, language, deckTarget] of [
 		expect(card.deckTarget ?? null).toBe(deckTarget)
 	})
 }
+
+test('the all-rows audio toggle sets every row and the rows added after', async ({
+	page,
+	api,
+}) => {
+	const fronts = page.getByPlaceholder('Il faut que tu [[sois:être]] là')
+	const sides = page.getByLabel('Audio from')
+	const all = page.getByRole('radiogroup', { name: 'Audio for all rows' })
+
+	await fronts.nth(0).fill('bonjour')
+	await page.getByRole('button', { name: 'Add row' }).click()
+	await fronts.nth(1).fill('merci')
+	await all.getByRole('radio', { name: 'Front' }).click()
+	await expect(sides.nth(0)).toHaveValue('front')
+	await expect(sides.nth(1)).toHaveValue('front')
+
+	// One row can still differ, and then neither side is shown as everyone's.
+	await sides.nth(1).selectOption('back')
+	await expect(all.getByRole('radio', { checked: true })).toHaveCount(0)
+
+	await page.getByRole('button', { name: 'Add row' }).click()
+	await fronts.nth(2).fill('salut')
+	await expect(sides.nth(2)).toHaveValue('front')
+
+	await page.getByRole('button', { name: 'Review' }).click()
+	await page.getByRole('button', { name: 'Add 3 to Anki' }).click()
+	await expect(page.getByRole('heading', { level: 2 })).toHaveText(
+		'Added 3 of 3 to Anki',
+	)
+	expect(api.added[0].cards.map((c) => c.audioSide)).toEqual([
+		'front',
+		'back',
+		'front',
+	])
+})

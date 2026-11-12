@@ -13,6 +13,7 @@ import { persist } from 'zustand/middleware'
 
 import type {
 	AddResult,
+	AudioSide,
 	CardDraft,
 	ManualDeck,
 	GenerateError,
@@ -33,11 +34,11 @@ export const emptyGenerateRow = (): GenerateRowInput => ({
 	asIs: false,
 })
 
-export const emptyManualRow = (): ManualRowInput => ({
+export const emptyManualRow = (audioSide: AudioSide = 'back'): ManualRowInput => ({
 	id: newId(),
 	front: '',
 	back: '',
-	audioSide: 'back',
+	audioSide,
 })
 
 interface BatchState {
@@ -49,6 +50,8 @@ interface BatchState {
 	manualRows: ManualRowInput[]
 	/** The deck the manual table adds to. Persisted, so it sticks between visits. */
 	manualDeck: ManualDeck
+	/** The side the last "all rows" pick chose; new manual rows start with it. */
+	manualAudioSide: AudioSide
 
 	drafts: CardDraft[]
 	/** Keyed by draft id, never by index -- that was the old bug. */
@@ -61,6 +64,8 @@ interface BatchState {
 	setGenerateRows: (rows: GenerateRowInput[]) => void
 	setManualRows: (rows: ManualRowInput[]) => void
 	setManualDeck: (deck: ManualDeck) => void
+	/** Sets every manual row's side at once; a row can still be changed after. */
+	setManualAudioSide: (side: AudioSide) => void
 
 	startWorking: (source: 'generate' | 'manual') => void
 	setDrafts: (drafts: CardDraft[], errors?: GenerateError[]) => void
@@ -82,6 +87,7 @@ const initial = {
 	generateRows: [emptyGenerateRow()],
 	manualRows: [emptyManualRow()],
 	manualDeck: 'vocabulary' as ManualDeck,
+	manualAudioSide: 'back' as AudioSide,
 	drafts: [],
 	keep: {},
 	errors: [],
@@ -97,6 +103,11 @@ export const useBatch = create<BatchState>()(
 			setGenerateRows: (generateRows) => set({ generateRows }),
 			setManualRows: (manualRows) => set({ manualRows }),
 			setManualDeck: (manualDeck) => set({ manualDeck }),
+			setManualAudioSide: (audioSide) =>
+				set((s) => ({
+					manualAudioSide: audioSide,
+					manualRows: s.manualRows.map((r) => ({ ...r, audioSide })),
+				})),
 
 			startWorking: (source) =>
 				set({

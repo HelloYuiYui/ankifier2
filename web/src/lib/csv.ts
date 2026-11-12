@@ -1,26 +1,7 @@
 import type { AudioSide, ManualRowInput } from '../api/types'
 
-const DELIMITERS = [',', ';', '\t'] as const
-
-/**
- * The separator used in the first line. French-locale spreadsheets export with
- * `;`, because `,` is their decimal separator.
- */
-export function detectDelimiter(text: string): string {
-	const counts = new Map<string, number>(DELIMITERS.map((d) => [d, 0]))
-	let quoted = false
-	for (const ch of text) {
-		if (ch === '"') quoted = !quoted
-		else if (!quoted && (ch === '\n' || ch === '\r')) break
-		else if (!quoted && counts.has(ch)) counts.set(ch, counts.get(ch)! + 1)
-	}
-	let best = ','
-	for (const d of DELIMITERS) if (counts.get(d)! > counts.get(best)!) best = d
-	return best
-}
-
 /** RFC 4180: quoted fields may hold the separator, newlines and `""`. */
-export function parseCsv(text: string, delimiter = detectDelimiter(text)): string[][] {
+export function parseCsv(text: string, delimiter = ','): string[][] {
 	const rows: string[][] = []
 	let row: string[] = []
 	let field = ''

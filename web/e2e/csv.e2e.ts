@@ -14,13 +14,13 @@ test('an imported CSV fills the manual table and reaches the request', async ({
 	page,
 	api,
 }) => {
-	// What a French-locale Excel export looks like: BOM, semicolons, CRLF, a
-	// header, a quoted field containing the separator, and a row with no front.
+	// BOM, CRLF, a header, a quoted field holding a comma, a semicolon that is
+	// just text, and a row with no front.
 	const csv =
-		'﻿Front;Back;Audio\r\n' +
-		'Il faut que tu [[sois:être]] là;You have to be there;front\r\n' +
-		'"Oui; non";"Yes; no"\r\n' +
-		';orphan back\r\n'
+		'﻿Front,Back,Audio\r\n' +
+		'Il faut que tu [[sois:être]] là; vraiment,You have to be there,front\r\n' +
+		'"Oui, non","Yes, no"\r\n' +
+		',orphan back\r\n'
 	await page.getByLabel('CSV file').setInputFiles(file('cards.csv', csv))
 
 	await expect(page.getByText('Imported 2 rows from cards.csv')).toContainText(
@@ -28,8 +28,8 @@ test('an imported CSV fills the manual table and reaches the request', async ({
 	)
 	const fronts = page.getByPlaceholder('Il faut que tu [[sois:être]] là')
 	await expect(fronts).toHaveCount(2)
-	await expect(fronts.nth(0)).toHaveValue('Il faut que tu [[sois:être]] là')
-	await expect(fronts.nth(1)).toHaveValue('Oui; non')
+	await expect(fronts.nth(0)).toHaveValue('Il faut que tu [[sois:être]] là; vraiment')
+	await expect(fronts.nth(1)).toHaveValue('Oui, non')
 	const sides = page.getByLabel('Audio from')
 	await expect(sides.nth(0)).toHaveValue('front')
 	await expect(sides.nth(1)).toHaveValue('back')
@@ -43,8 +43,12 @@ test('an imported CSV fills the manual table and reaches the request', async ({
 	expect(
 		api.added[0].cards.map((c) => [c.clozeSentence, c.translation, c.audioSide]),
 	).toEqual([
-		['Il faut que tu {{c1::sois::être}} là', 'You have to be there', 'front'],
-		['Oui; non', 'Yes; no', 'back'],
+		[
+			'Il faut que tu {{c1::sois::être}} là; vraiment',
+			'You have to be there',
+			'front',
+		],
+		['Oui, non', 'Yes, no', 'back'],
 	])
 })
 

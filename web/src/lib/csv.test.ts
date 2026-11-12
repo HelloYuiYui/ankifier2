@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { ManualRowInput } from '../api/types'
-import { detectDelimiter, manualRowsFromCsv, parseCsv } from './csv'
+import { manualRowsFromCsv, parseCsv } from './csv'
 
 let n = 0
 const newRow = (): ManualRowInput => ({
@@ -13,27 +13,17 @@ const newRow = (): ManualRowInput => ({
 const pairs = (text: string) =>
 	manualRowsFromCsv(text, newRow).rows.map((r) => [r.front, r.back, r.audioSide])
 
-describe('detectDelimiter', () => {
-	it('picks the separator used most on the first line', () => {
-		expect(detectDelimiter('a,b\nc,d')).toBe(',')
-		expect(detectDelimiter('a;b\nc;d')).toBe(';')
-		expect(detectDelimiter('a\tb')).toBe('\t')
-	})
-
-	it('ignores separators inside quotes', () => {
-		expect(detectDelimiter('"Oui, non, peut-être";yes')).toBe(';')
-	})
-
-	it('falls back to a comma', () => {
-		expect(detectDelimiter('bonjour')).toBe(',')
-	})
-})
-
 describe('parseCsv', () => {
 	it('handles quotes, escaped quotes and newlines inside quotes', () => {
 		expect(parseCsv('"Il a dit ""oui"", puis",x\n"deux\nlignes",y')).toEqual([
 			['Il a dit "oui", puis', 'x'],
 			['deux\nlignes', 'y'],
+		])
+	})
+
+	it('splits on commas only', () => {
+		expect(parseCsv('Attends; je viens,Wait; I am coming\ta')).toEqual([
+			['Attends; je viens', 'Wait; I am coming\ta'],
 		])
 	})
 
@@ -54,7 +44,7 @@ describe('manualRowsFromCsv', () => {
 	})
 
 	it('reads columns by name when there is a header', () => {
-		expect(pairs('Audio;Back;Front\nfront;hello;bonjour')).toEqual([
+		expect(pairs('Audio,Back,Front\nfront,hello,bonjour')).toEqual([
 			['bonjour', 'hello', 'front'],
 		])
 	})
