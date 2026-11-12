@@ -79,7 +79,8 @@ tests/                  pytest; every connector is faked (no network, no credits
 - **Changing `schemas.py` means changing `packages/api/src/types.ts` in the same change.**
   No codegen. Check `/docs`.
 - **Audio is content-addressed:** `{readable}_{hash}.mp3`, so identical text
-  reuses the file. The `[sound:...]` tag always goes on the note's **back** field.
+  reuses the file. A manual cloze's readable part is its hidden text only
+  (`services.spoken_text`, read from `cloze_sentence`). The `[sound:...]` tag always goes on the note's **back** field.
   `audio_side` only decides *what* is read (sentence vs translation).
 - **Hints are never read aloud.** `cloze.render` returns `(plain, cloze)`, and only
   `plain` goes to TTS.

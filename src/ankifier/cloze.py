@@ -88,6 +88,19 @@ def extract_marked_parts(text: str) -> list[str]:
 	return [m.group(1).strip() for m in MARKER_RE.finditer(text)]
 
 
+# The hint is split off at the last "::", as Anki does.
+_CLOZE_RE = re.compile(r"\{\{c\d+::(.+?)(?:::[^:]*?)?\}\}")
+
+
+def hidden_parts(cloze_text: str) -> list[str]:
+	"""The hidden text of each {{c1::...}} in rendered cloze text, without hints.
+
+	A repeated part is listed once.
+	"""
+	parts = (m.group(1).strip() for m in _CLOZE_RE.finditer(cloze_text))
+	return list(dict.fromkeys(p for p in parts if p))
+
+
 def strip_markers(text: str) -> str:
 	return render(text)[0]
 

@@ -151,8 +151,30 @@ def test_manual_draft_with_cloze():
 	assert d.sentence == "Il faut que tu sois la"  # spoken, marker-free
 	assert d.cloze_sentence == "Il faut que tu {{c1::sois::etre}} la"
 	assert d.translation == "You must be there"
-	# The stem must not carry marker punctuation into the filename.
 	assert d.audio_stem == "Il faut que tu sois la"
+
+
+def test_a_manual_cloze_names_its_audio_after_the_hidden_text():
+	d = services.manual_draft(
+		"m1", "Il faut que tu [[sois:etre]] la", "You must be there", True
+	)
+	assert services.spoken_text(d) == ("Il faut que tu sois la", "sois")
+
+
+def test_a_manual_cloze_with_several_markers_names_each_hidden_part_once():
+	d = services.manual_draft("m1", "[[Je:I]] [[suis]] la, [[je]] [[suis]]", "x", True)
+	assert services.spoken_text(d)[1] == "Je suis je"
+
+
+def test_a_manual_card_without_a_cloze_is_named_after_its_front():
+	d = services.manual_draft("m1", "bonjour", "hello", True)
+	assert services.spoken_text(d) == ("bonjour", "bonjour")
+
+
+def test_a_manual_cloze_audio_file_starts_with_the_hidden_word(settings, anki, tts):
+	d = services.manual_draft("m1", "Il faut que tu [[sois:etre]] la", "x", True)
+	result = services.add_one(d, settings)
+	assert re.fullmatch(r"/api/audio/sois_[0-9a-f]{10}\.mp3", result.audio_url)
 
 
 def test_manual_draft_without_cloze_takes_the_front_literally():

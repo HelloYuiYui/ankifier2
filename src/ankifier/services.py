@@ -98,8 +98,8 @@ def manual_draft(
 		cloze_sentence=cloze_text,
 		translation=back,
 		audio_side=audio_side,
-		# A stem built from the raw front would carry the marker punctuation.
-		# The back carries no markers, so it can name its own file.
+		# Names a front without markers; spoken_text names a cloze after its
+		# hidden text instead. The back names its own file.
 		audio_stem=None if audio_side == "back" else plain,
 	)
 
@@ -181,6 +181,12 @@ def spoken_text(card: CardDraft) -> tuple[str, str | None]:
 	if card.audio_side == "back":
 		# Not card.word: that is the front, which this audio does not contain.
 		return card.translation, card.audio_stem
+	if card.kind == "manual":
+		# A manual cloze's file is named after what it hides, not the whole
+		# sentence. Read from cloze_sentence, so an edit in review is followed.
+		hidden = cloze.hidden_parts(card.cloze_sentence)
+		if hidden:
+			return card.sentence, " ".join(hidden)
 	return card.sentence, card.audio_stem or card.word
 
 

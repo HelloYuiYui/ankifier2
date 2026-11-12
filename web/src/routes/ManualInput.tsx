@@ -185,9 +185,9 @@ export function ManualInput() {
 					? { language: 'bulgarian' as const, deckTarget: null }
 					: { language: 'french' as const, deckTarget: deck }),
 				audioSide,
-				// Named after the spoken text, so the filename never carries
-				// marker punctuation. A back-read row needs no stem: the back
-				// has no markers in it, so it names its own file.
+				// Names a front without markers; the server names a cloze after
+				// its hidden text instead. A back-read row needs no stem: the
+				// back names its own file.
 				audioStem: audioSide === 'back' ? null : plain,
 			}
 		})
