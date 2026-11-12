@@ -126,8 +126,15 @@ nav.tabs a.active {
 	flex: 1;
 }
 
+.intro {
+	margin-top: 0;
+	font-size: 0.8rem;
+	color: var(--muted);
+}
+
 /* --- controls ----------------------------------------------------------- */
-button {
+button,
+a.button {
 	font: inherit;
 	padding: 8px 15px;
 	border-radius: 7px;
@@ -137,7 +144,13 @@ button {
 	cursor: pointer;
 }
 
-button:hover:not(:disabled) {
+a.button {
+	display: inline-block;
+	text-decoration: none;
+}
+
+button:hover:not(:disabled),
+a.button:hover {
 	border-color: var(--accent);
 }
 button:disabled {
@@ -272,6 +285,34 @@ td {
 	vertical-align: top;
 }
 
+th.grow {
+	width: 100%;
+}
+.review-table th.spoken {
+	width: 21%;
+}
+.review-table th.front {
+	width: 26%;
+}
+.review-table th.back {
+	width: 16%;
+}
+.review-table th.tags {
+	width: 12%;
+}
+.manual-table th.front {
+	width: 44%;
+}
+.manual-table th.back {
+	width: 34%;
+}
+
+audio.player {
+	display: block;
+	margin-top: 6px;
+	height: 30px;
+}
+
 tr.dropped td {
 	opacity: 0.45;
 }
@@ -323,6 +364,10 @@ tr.needs-cloze td {
 }
 
 /* --- banners ------------------------------------------------------------ */
+.scroll ~ .banner {
+	margin-top: 14px;
+}
+
 .banner {
 	border-radius: 8px;
 	padding: 10px 14px;
