@@ -5,9 +5,8 @@ import { needsCloze } from '@ankifier/api'
 
 import { api } from '../api/client'
 import { Banner } from '../components/Banner'
-import { ClozePreview } from '../components/ClozePreview'
-import { EditableCell } from '../components/EditableCell'
 import { EmptyState } from '../components/EmptyState'
+import { ReviewRow } from '../components/ReviewRow'
 import type { CardDraft } from '../api/types'
 import { keptDrafts, useBatch } from '../store/batch'
 import { useAsyncAction } from '../lib/useAsyncAction'
@@ -94,9 +93,6 @@ export function Review() {
 		return <EmptyState>Nothing to review yet.</EmptyState>
 	}
 
-	const edit = (id: string, field: keyof CardDraft) => (next: string) =>
-		updateDraft(id, { [field]: next })
-
 	return (
 		<div className="panel">
 			<h2>
@@ -157,112 +153,15 @@ export function Review() {
 					</thead>
 					<tbody>
 						{drafts.map((d) => (
-							<tr
+							<ReviewRow
 								key={d.id}
-								className={
-									!keep[d.id]
-										? 'dropped'
-										: needsCloze(d)
-											? 'needs-cloze'
-											: undefined
-								}
-							>
-								<td>
-									<input
-										type="checkbox"
-										checked={!!keep[d.id]}
-										onChange={() => toggleKeep(d.id)}
-									/>
-								</td>
-								<td>
-									<div>{d.word}</div>
-									{d.kind !== 'generated' && (
-										<span className="badge neutral">
-											{d.kind === 'as_is' ? 'as is' : 'manual'}
-										</span>
-									)}
-									{isDuplicate(d) && (
-										<span className="badge skipped">
-											already in Anki
-										</span>
-									)}
-								</td>
-								{showSenses && (
-									<td className="small muted">
-										{d.senseDescription || '—'}
-									</td>
-								)}
-								<td>
-									{/* Bound to whichever field is read aloud: a
-									    column called "Spoken text" that showed the
-									    front of a back-read card would be a lie,
-									    and editing it would change nothing. */}
-									<EditableCell
-										label="Spoken text"
-										value={
-											d.audioSide === 'back'
-												? d.translation
-												: d.sentence
-										}
-										onChange={edit(
-											d.id,
-											d.audioSide === 'back'
-												? 'translation'
-												: 'sentence',
-										)}
-									/>
-									{d.audioSide === 'back' && (
-										<span className="badge neutral">
-											reads the back
-										</span>
-									)}
-								</td>
-								<td>
-									<EditableCell
-										label="Card front"
-										className="mono"
-										value={d.clozeSentence}
-										onChange={edit(d.id, 'clozeSentence')}
-									/>
-									<ClozePreview cloze={d.clozeSentence} />
-									{needsCloze(d) && (
-										<span className="badge skipped">no cloze</span>
-									)}
-								</td>
-								<td>
-									<EditableCell
-										label="Back"
-										value={d.translation}
-										onChange={edit(d.id, 'translation')}
-									/>
-								</td>
-								<td className="small">
-									<EditableCell
-										label="Tags"
-										value={d.extraTags ?? ''}
-										onChange={edit(d.id, 'extraTags')}
-									/>
-								</td>
-								{showSenses && (
-									<td className="small muted">
-										{d.level ?? 'not returned'}
-										{d.partOfSpeech && (
-											<div>
-												<span className="badge neutral">
-													{d.partOfSpeech}
-												</span>
-											</div>
-										)}
-										{d.gender && (
-											<div>
-												<span className="badge neutral">
-													{d.gender}
-												</span>
-											</div>
-										)}
-									</td>
-								)}
-							</tr>
+								draft={d}
+								kept={!!keep[d.id]}
+								duplicate={isDuplicate(d)}
+								showSenses={showSenses}
+								onToggle={() => toggleKeep(d.id)}
+								onChange={(change) => updateDraft(d.id, change)}
+							/>
 						))}
 					</tbody>
 				</table>
